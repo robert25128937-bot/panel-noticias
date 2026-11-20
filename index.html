@@ -356,6 +356,7 @@ MarketWatch | https://feeds.marketwatch.com/marketwatch/topstories/`;
       if (/HTTP 401|HTTP 403/.test(m) && !m.includes('(')) return m + ' (clave inválida o sin permiso en tu plan)';
       if (/HTTP 402/.test(m)) return 'HTTP 402 (requiere plan de pago)';
       if (/HTTP 429/.test(m)) return 'HTTP 429 (límite de llamadas; sube el intervalo)';
+      if (/HTTP 503/.test(m)) return 'HTTP 503 (el sitio rechazó la consulta; se reintenta solo)';
       if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Bloqueado por CORS, red o adblock (prueba con un proxy)';
       return m;
     }
@@ -518,17 +519,62 @@ MarketWatch | https://feeds.marketwatch.com/marketwatch/topstories/`;
       });
     }
 
+    const feedState = {}; // url -> { next, count, error }
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    async function fetchFeed(base, f) {
+      let lastErr;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          return parseRss(await getText(base + encodeURIComponent(f.url)), f);
+        } catch (e) {
+          lastErr = e;
+          if (!/HTTP (429|503)/.test(String((e && e.message) || e))) break;
+          await sleep(2500); // un reintento si el sitio nos limitó
+        }
+      }
+      throw lastErr;
+    }
+
     const PROVIDERS = {
       /* ---- RSS gratis vía tu Cloudflare Worker ---- */
       async rss(worker) {
         const base = workerBase(worker);
         const feeds = buildRssFeeds();
         if (!feeds.length) throw new Error('No hay feeds válidos en la lista');
-        const results = await Promise.allSettled(feeds.map(f => getText(base + encodeURIComponent(f.url)).then(x => parseRss(x, f))));
-        const ok = results.filter(r => r.status === 'fulfilled');
-        if (!ok.length) throw results[0].reason;
-        const detail = results.map((r, i) => r.status === 'rejected' ? `${feeds[i].name}: ${friendlyError(r.reason)}` : '').filter(Boolean).join(' | ');
-        return { items: ok.flatMap(r => r.value), failed: results.length - ok.length, detail };
+        const isG = f => /news\.google\.com/.test(f.url);
+        const now = Date.now();
+        // Cada feed tiene su propio ritmo: Google News cada 5 min, el resto cada 1 min.
+        // Si uno falla, se reintenta a los 2 min.
+        const due = feeds.filter(f => !feedState[f.url] || now >= feedState[f.url].next);
+        const collected = [];
+
+        const run = async f => {
+          const st = feedState[f.url] || (feedState[f.url] = { count: 0, error: '', next: 0 });
+          try {
+            const items = await fetchFeed(base, f);
+            collected.push(...items);
+            st.count = items.length; st.error = ''; st.next = Date.now() + (isG(f) ? 300000 : 60000);
+          } catch (e) {
+            st.error = friendlyError(e); st.next = Date.now() + 120000;
+          }
+        };
+
+        await Promise.all([
+          Promise.all(due.filter(f => !isG(f)).map(run)),
+          // Google News: una consulta a la vez con pausa, para que no nos limite
+          (async () => { for (const f of due.filter(isG)) { await run(f); await sleep(800); } })()
+        ]);
+
+        const active = feeds.map(f => ({ f, st: feedState[f.url] })).filter(x => x.st);
+        const bad = active.filter(x => x.st.error);
+        if (active.length && bad.length === active.length) throw new Error(bad[0].f.name + ': ' + bad[0].st.error);
+        return {
+          items: collected,
+          count: active.reduce((a, x) => a + x.st.count, 0),
+          failed: bad.length,
+          detail: bad.map(x => `${x.f.name}: ${x.st.error}`).join(' | ')
+        };
       },
 
       /* ---- Finnhub: general + cripto + forex + noticias por empresa ---- */
@@ -681,7 +727,7 @@ MarketWatch | https://feeds.marketwatch.com/marketwatch/topstories/`;
         try {
           lastRun[name] = Date.now();
           const r = await PROVIDERS[name](cfg[name].trim());
-          providerStatus[name] = { ok: true, count: r.items.length, failed: r.failed, detail: r.detail };
+          providerStatus[name] = { ok: true, count: r.count ?? r.items.length, failed: r.failed, detail: r.detail };
           return r.items;
         } catch (e) {
           console.error(name, e);
