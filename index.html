@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terminal de Noticias Financieras</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    :root {
+      --bg-main: #0c1218;
+      --bg-panel: #111820;
+      --bg-hover: #17212b;
+      --bg-input: #0a0f14;
+      --border-color: #1f2b37;
+      --text-primary: #e2e8f0;
+      --text-secondary: #8b9bb4;
+      --accent-green: #22c55e;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Scrollbar estilo terminal */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0a0f14;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #23303e;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334558;
+    }
+
+    @keyframes flashRow {
+      0% { background-color: rgba(34, 197, 94, 0.18); }
+      100% { background-color: transparent; }
+    }
+    .new-flash {
+      animation: flashRow 1.8s ease-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Barra Superior -->
+  <header class="bg-[#0e151c] border-b border-[#1f2b37] px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-20">
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" id="liveDot"></span>
+        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
+        </svg>
+        <h1 class="text-sm font-semibold tracking-wide text-slate-100 uppercase">Noticias de Mercado</h1>
+      </div>
+      <span id="modeBadge" class="text-[11px] font-mono-num px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+        MODO DEMO EN VIVO
+      </span>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <span id="clockDisplay" class="text-xs font-mono-num text-slate-400 mr-2 hidden sm:inline">UTC-6 --:--:--</span>
+      <button onclick="togglePause()" id="pauseBtn" class="px-2.5 py-1 text-xs rounded border border-[#243240] bg-[#131c24] hover:bg-[#1a2631] text-slate-300 transition flex items-center gap-1.5">
+        <span id="pauseIcon">⏸</span>
+        <span id="pauseText">Pausar</span>
+      </button>
+      <button onclick="openApiModal()" class="px-2.5 py-1 text-xs rounded border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-medium transition flex items-center gap-1.5">
+        <span>⚡</span>
+        <span>Conectar API Real</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Barra de Filtros y Búsqueda (estilo DonTrading) -->
+  <section class="bg-[#111820] border-b border-[#1f2b37] px-4 py-2.5">
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+      
+      <!-- Tabs de Categoría -->
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mr-1">Vista:</span>
+        <button onclick="setCategory('ALL')" data-cat="ALL" class="cat-btn active px-2.5 py-1 text-xs rounded font-medium bg-[#1e2936] text-white border border-[#334457] transition">
+          Todas
+        </button>
+        <button onclick="setCategory('GENERALES')" data-cat="GENERALES" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-slate-200 transition">
+          Generales / Macro
+        </button>
+        <button onclick="setCategory('ACTIVO')" data-cat="ACTIVO" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-slate-200 transition">
+          Del activo
+        </button>
+        <button onclick="setCategory('CRYPTO')" data-cat="CRYPTO" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-slate-200 transition">
+          Cripto
+        </button>
+      </div>
+
+      <!-- Buscadores: Símbolo + Texto -->
+      <div class="flex items-center gap-2 flex-1 md:max-w-xl">
+        <div class="relative w-32 sm:w-36">
+          <input
+            type="text"
+            id="symbolInput"
+            oninput="renderFeed()"
+            placeholder="Símbolo (NVDA)"
+            class="w-full bg-[#0a0f14] border border-[#1f2b37] focus:border-emerald-500/60 rounded px-2.5 py-1 text-xs font-mono-num uppercase text-slate-200 placeholder-slate-500 outline-none transition"
+          />
+        </div>
+        <div class="relative flex-1">
+          <input
+            type="text"
+            id="searchInput"
+            oninput="renderFeed()"
+            placeholder="Buscar titular, fuente o palabra clave..."
+            class="w-full bg-[#0a0f14] border border-[#1f2b37] focus:border-emerald-500/60 rounded pl-7 pr-6 py-1 text-xs text-slate-200 placeholder-slate-500 outline-none transition"
+          />
+          <svg class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <button onclick="clearFilters()" title="Limpiar filtros" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs">
+            ✕
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Contenedor Principal del Tape de Noticias -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-2 sm:px-4 py-3">
+    <div class="bg-[#0e141b] border border-[#1f2b37] rounded-md overflow-hidden shadow-xl">
+      
+      <!-- Encabezado de columnas -->
+      <div class="grid grid-cols-[54px_125px_1fr_82px] sm:grid-cols-[60px_145px_1fr_92px] items-center px-3 py-1.5 bg-[#121a23] border-b border-[#1f2b37] text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <div>Hora</div>
+        <div>Fuente</div>
+        <div>Titular</div>
+        <div class="text-right">Activo</div>
+      </div>
+
+      <!-- Lista dinámica de noticias -->
+      <div id="newsList" class="divide-y divide-[#18222d] max-h-[calc(100vh-175px)] overflow-y-auto">
+        <!-- Se llena vía JavaScript -->
+      </div>
+
+      <!-- Estado vacío -->
+      <div id="emptyState" class="hidden py-12 text-center text-slate-500 text-xs">
+        No se encontraron titulares que coincidan con tu filtro.
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Vista Previa de Noticia -->
+  <div id="articleModal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-xs z-40 flex items-center justify-center p-4" onclick="closeArticleModal(event)">
+    <div class="bg-[#111820] border border-[#263545] rounded-lg max-w-lg w-full p-5 shadow-2xl" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <div class="flex items-center gap-2">
+          <span id="modalBadge" class="px-2 py-0.5 text-xs font-mono-num font-semibold rounded bg-slate-800 text-emerald-400"></span>
+          <span id="modalSource" class="text-xs text-slate-400 font-medium"></span>
+          <span class="text-slate-600">•</span>
+          <span id="modalTime" class="text-xs font-mono-num text-slate-400"></span>
+        </div>
+        <button onclick="closeArticleModal()" class="text-slate-400 hover:text-white text-sm px-1.5">✕</button>
+      </div>
+      <h2 id="modalTitle" class="text-base font-semibold text-slate-100 leading-snug mb-3"></h2>
+      <p id="modalSummary" class="text-xs text-slate-300 leading-relaxed mb-4"></p>
+      <div class="flex items-center justify-between pt-3 border-t border-[#1f2b37]">
+        <span class="text-[11px] text-slate-500">Terminal de Noticias en la Nube</span>
+        <a id="modalLink" href="#" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition">
+          Abrir nota original ↗
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Configuración API Real (Finnhub) -->
+  <div id="apiModal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-xs z-40 flex items-center justify-center p-4" onclick="closeApiModal(event)">
+    <div class="bg-[#111820] border border-[#263545] rounded-lg max-w-md w-full p-5 shadow-2xl" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-white">Conectar Noticias en Tiempo Real</h3>
+        <button onclick="closeApiModal()" class="text-slate-400 hover:text-white text-sm">✕</button>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed mb-3">
+        Pega tu <strong>API Key gratuita de Finnhub</strong> para recibir titulares financieros reales al instante (se guarda de forma segura en tu navegador).
+      </p>
+      <ol class="text-[11px] text-slate-400 list-decimal list-inside space-y-1 mb-4 bg-[#0a0f14] p-2.5 rounded border border-[#1f2b37]">
+        <li>Crea una cuenta gratis en <a href="https://finnhub.io/register" target="_blank" class="text-emerald-400 underline">finnhub.io</a></li>
+        <li>Copia tu <em>API Key</em> del panel principal</li>
+        <li>Pégala abajo y presiona <strong>Guardar y Conectar</strong></li>
+      </ol>
+      <input
+        type="text"
+        id="apiKeyInput"
+        placeholder="Ej. ct89ab1r01q..."
+        class="w-full bg-[#0a0f14] border border-[#263545] focus:border-emerald-500 rounded px-3 py-2 text-xs font-mono-num text-white outline-none mb-3"
+      />
+      <div class="flex items-center justify-between gap-2">
+        <button onclick="disconnectApi()" class="px-3 py-1.5 rounded border border-[#263545] text-xs text-slate-400 hover:text-white">
+          Usar Modo Demo
+        </button>
+        <button onclick="saveApiKey()" class="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold">
+          Guardar y Conectar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Colores e iconos por fuente
+    const SOURCE_STYLES = {
+      'Seeking Alpha': { bg: 'bg-orange-500', text: 'text-white', label: 'SA' },
+      'The Motley Fool': { bg: 'bg-purple-600', text: 'text-white', label: 'MF' },
+      'WSJ': { bg: 'bg-slate-200', text: 'text-slate-900', label: 'WSJ' },
+      'TechCrunch': { bg: 'bg-emerald-500', text: 'text-slate-950', label: 'TC' },
+      'Reuters': { bg: 'bg-amber-500', text: 'text-slate-950', label: 'R' },
+      'Bloomberg': { bg: 'bg-blue-600', text: 'text-white', label: 'BBG' },
+      'Cryptopolitan': { bg: 'bg-sky-500', text: 'text-white', label: 'CP' },
+      'Zacks': { bg: 'bg-lime-500', text: 'text-slate-950', label: 'Z' },
+      'Yahoo Finance': { bg: 'bg-indigo-600', text: 'text-white', label: 'Y!' }
+    };
+
+    // Noticias iniciales estilo DonTrading
+    let newsItems = [
+      {
+        id: 1,
+        time: '18:50',
+        source: 'Seeking Alpha',
+        title: 'VSE Corporation: El crecimiento por adquisiciones impulsa proyecciones trimestrales',
+        summary: 'Los analistas destacan la expansión de márgenes en el segmento de aviación y distribución técnica tras los últimos reportes.',
+        ticker: 'VSEC',
+        trend: 'up',
+        category: 'ACTIVO',
+        url: 'https://seekingalpha.com'
+      },
+      {
+        id: 2,
+        time: '18:50',
+        source: 'The Motley Fool',
+        title: 'El S&P 500 encadena retroceso semanal mientras el mercado evalúa tasas de la Fed',
+        summary: 'El índice de referencia US500 muestra volatilidad intradía ante la publicación de minutas de política monetaria y datos de empleo.',
+        ticker: '^GSPC',
+        trend: 'up',
+        category: 'GENERALES',
+        url: 'https://www.fool.com'
+      },
+      {
+        id: 3,
+        time: '18:50',
+        source: 'WSJ',
+        title: 'Opinión | La aceleración de capital en infraestructura de inteligencia artificial',
+        summary: 'Las principales tecnológicas mantienen ritmos récord de inversión en centros de datos y capacidad de cómputo.',
+        ticker: 'MACRO',
+        trend: 'neutral',
+        category: 'GENERALES',
+        url: 'https://www.wsj.com'
+      },
+      {
+        id: 4,
+        time: '18:43',
+        source: 'The Motley Fool',
+        title: 'Movimientos institucionales en semiconductores: posiciones clave en Nvidia y CRM',
+        summary: 'Nuevos reportes 13F revelan ajustes relevantes de fondos de cobertura en empresas líderes de chips y software empresarial.',
+        ticker: 'NVDA',
+        trend: 'down',
+        category: 'ACTIVO',
+        url: 'https://www.fool.com'
+      },
+      {
+        id: 5,
+        time: '18:40',
+        source: 'Cryptopolitan',
+        title: 'IOSCO emite nuevas directrices de supervisión para mercados de activos digitales',
+        summary: 'El organismo internacional busca estandarizar requisitos de liquidez y custodia para plataformas globales.',
+        ticker: 'SOLUSD',
+        trend: 'down',
+        category: 'CRYPTO',
+        url: 'https://www.cryptopolitan.com'
+      },
+      {
+        id: 6,
+        time: '18:38',
+        source: 'WSJ',
+        title: 'Nikkei retrocede 2.9% arrastrado por fabricantes de chips y metales industriales',
+        summary: 'La sesión asiática cerró con toma de utilidades tras el fortalecimiento del yen frente al dólar estadounidense.',
+        ticker: 'JP225',
+        trend: 'down',
+        category: 'GENERALES',
+        url: 'https://www.wsj.com'
+      },
+      {
+        id: 7,
+        time: '18:30',
+        source: 'Zacks',
+        title: 'Intuit (INTU) supera estimaciones de ingresos en su primer trimestre fiscal',
+        summary: 'La demanda en soluciones fiscales y contables en la nube impulsó el beneficio por acción por encima del consenso.',
+        ticker: 'INTU',
+        trend: 'up',
+        category: 'ACTIVO',
+        url: 'https://www.zacks.com'
+      }
+    ];
+
+    // Flujo simulado para modo demo
+    const LIVE_POOL = [
+      { source: 'Reuters', title: 'Rendimiento de los bonos del Tesoro a 10 años opera estable antes de subasta', ticker: 'US10Y', trend: 'neutral', category: 'GENERALES', summary: 'Los operadores mantienen cautela a la espera de nuevos comentarios de miembros de la Reserva Federal.' },
+      { source: 'Bloomberg', title: 'Bitcoin prueba zona clave de soporte tras liquidaciones en derivados', ticker: 'BTCUSD', trend: 'down', category: 'CRYPTO', summary: 'El volumen en contratos perpetuos aumentó 18% durante las últimas dos horas de negociación.' },
+      { source: 'Seeking Alpha', title: 'Apple amplía capacidad de producción de componentes en Asia para próxima línea', ticker: 'AAPL', trend: 'up', category: 'ACTIVO', summary: 'Proveedores reportan incremento en órdenes de ensamblaje para el próximo trimestre.' },
+      { source: 'WSJ', title: 'Inventarios semanales de crudo muestran caída mayor a la prevista por el mercado', ticker: 'USOIL', trend: 'up', category: 'GENERALES', summary: 'El precio del barril reacciona al alza tras conocerse los datos oficiales de almacenamiento.' },
+      { source: 'TechCrunch', title: 'Nuevos modelos de código abierto reducen costos de inferencia en la nube', ticker: 'MSFT', trend: 'up', category: 'ACTIVO', summary: 'Empresas medianas aceleran la adopción de asistentes internos gracias a menores costos por token.' }
+    ];
+
+    let currentCategory = 'ALL';
+    let isPaused = false;
+    let demoInterval = null;
+    let liveInterval = null;
+    let finnhubKey = localStorage.getItem('finnhub_api_key') || '';
+
+    function getCurrentTimeStr() {
+      const now = new Date();
+      return now.toTimeString().slice(0, 5);
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clockDisplay').textContent = now.toTimeString().slice(0, 8);
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function getSourceBadge(source) {
+      const st = SOURCE_STYLES[source] || { bg: 'bg-slate-600', text: 'text-white', label: source.slice(0, 2).toUpperCase() };
+      return `<span class="inline-flex items-center justify-center w-4 h-4 rounded-[3px] text-[9px] font-bold shrink-0 ${st.bg} ${st.text}">${st.label}</span>`;
+    }
+
+    function getTickerBadge(ticker, trend) {
+      if (!ticker) return '';
+      let colorClass = 'bg-[#18232f] text-slate-300 border-[#283849]';
+      let arrow = '';
+      if (trend === 'up') {
+        colorClass = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+        arrow = ' ▲';
+      } else if (trend === 'down') {
+        colorClass = 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+        arrow = ' ▼';
+      }
+      return `<span class="inline-block font-mono-num text-[10px] font-semibold px-1.5 py-0.5 rounded border ${colorClass} truncate max-w-[84px]">${ticker}${arrow}</span>`;
+    }
+
+    function renderFeed(flashFirst = false) {
+      const listEl = document.getElementById('newsList');
+      const emptyEl = document.getElementById('emptyState');
+      const symbolFilter = document.getElementById('symbolInput').value.trim().toUpperCase();
+      const textFilter = document.getElementById('searchInput').value.trim().toLowerCase();
+
+      const filtered = newsItems.filter(item => {
+        if (currentCategory !== 'ALL' && item.category !== currentCategory) return false;
+        if (symbolFilter && !(item.ticker || '').toUpperCase().includes(symbolFilter)) return false;
+        if (textFilter) {
+          const haystack = `${item.title} ${item.source} ${item.ticker || ''}`.toLowerCase();
+          if (!haystack.includes(textFilter)) return false;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      emptyEl.classList.add('hidden');
+      listEl.innerHTML = filtered.map((item, idx) => `
+        <div
+          onclick="openArticle(${item.id})"
+          class="grid grid-cols-[54px_125px_1fr_82px] sm:grid-cols-[60px_145px_1fr_92px] items-center px-3 py-2 hover:bg-[#17212b] cursor-pointer transition-colors group ${flashFirst && idx === 0 ? 'new-flash' : ''}"
+        >
+          <div class="font-mono-num text-xs text-amber-400/90 font-medium">
+            ${item.time}
+          </div>
+          <div class="flex items-center gap-1.5 pr-2 min-w-0">
+            ${getSourceBadge(item.source)}
+            <span class="text-xs text-slate-400 truncate group-hover:text-slate-300">${item.source}</span>
+          </div>
+          <div class="text-xs sm:text-[13px] text-slate-100 font-medium truncate pr-3 group-hover:text-white">
+            ${item.title}
+          </div>
+          <div class="text-right">
+            ${getTickerBadge(item.ticker, item.trend)}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function setCategory(cat) {
+      currentCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        if (btn.dataset.cat === cat) {
+          btn.className = 'cat-btn active px-2.5 py-1 text-xs rounded font-medium bg-[#1e2936] text-white border border-[#334457] transition';
+        } else {
+          btn.className = 'cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-slate-200 transition';
+        }
+      });
+      renderFeed();
+    }
+
+    function clearFilters() {
+      document.getElementById('symbolInput').value = '';
+      document.getElementById('searchInput').value = '';
+      setCategory('ALL');
+    }
+
+    function togglePause() {
+      isPaused = !isPaused;
+      document.getElementById('pauseIcon').textContent = isPaused ? '▶' : '⏸';
+      document.getElementById('pauseText').textContent = isPaused ? 'Reanudar' : 'Pausar';
+      document.getElementById('liveDot').classList.toggle('bg-emerald-500', !isPaused);
+      document.getElementById('liveDot').classList.toggle('bg-slate-500', isPaused);
+    }
+
+    function openArticle(id) {
+      const item = newsItems.find(n => n.id === id);
+      if (!item) return;
+      document.getElementById('modalBadge').textContent = item.ticker || 'MERCADO';
+      document.getElementById('modalSource').textContent = item.source;
+      document.getElementById('modalTime').textContent = item.time;
+      document.getElementById('modalTitle').textContent = item.title;
+      document.getElementById('modalSummary').textContent = item.summary || 'Haz clic en el botón inferior para leer la cobertura completa directamente en la fuente original.';
+      document.getElementById('modalLink').href = item.url || '#';
+      document.getElementById('articleModal').classList.remove('hidden');
+    }
+
+    function closeArticleModal(e) {
+      if (!e || e.target.id === 'articleModal') {
+        document.getElementById('articleModal').classList.add('hidden');
+      }
+    }
+
+    // Gestión de API Real (Finnhub)
+    function openApiModal() {
+      document.getElementById('apiKeyInput').value = finnhubKey;
+      document.getElementById('apiModal').classList.remove('hidden');
+    }
+
+    function closeApiModal(e) {
+      if (!e || e.target.id === 'apiModal') {
+        document.getElementById('apiModal').classList.add('hidden');
+      }
+    }
+
+    function saveApiKey() {
+      const key = document.getElementById('apiKeyInput').value.trim();
+      if (!key) return;
+      finnhubKey = key;
+      localStorage.setItem('finnhub_api_key', key);
+      closeApiModal();
+      startLiveMode();
+    }
+
+    function disconnectApi() {
+      finnhubKey = '';
+      localStorage.removeItem('finnhub_api_key');
+      closeApiModal();
+      startDemoMode();
+    }
+
+    async function fetchFinnhubNews() {
+      if (isPaused || !finnhubKey) return;
+      try {
+        const res = await fetch(`https://finnhub.io/api/v1/news?category=general&token=${encodeURIComponent(finnhubKey)}`);
+        if (!res.ok) throw new Error('Error de API');
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          newsItems = data.slice(0, 45).map((n, index) => {
+            const d = new Date(n.datetime * 1000);
+            const timeStr = d.toTimeString().slice(0, 5);
+            const isCrypto = (n.category || '').toLowerCase() === 'crypto';
+            const ticker = n.related ? n.related.split(',')[0].trim() : (isCrypto ? 'CRYPTO' : 'MACRO');
+            return {
+              id: n.id || index + 1000,
+              time: timeStr,
+              source: n.source || 'Mercado',
+              title: n.headline,
+              summary: n.summary,
+              ticker: ticker,
+              trend: 'neutral',
+              category: isCrypto ? 'CRYPTO' : (n.related ? 'ACTIVO' : 'GENERALES'),
+              url: n.url
+            };
+          });
+          renderFeed(false);
+        }
+      } catch (err) {
+        console.error('Error al obtener noticias reales:', err);
+      }
+    }
+
+    function startLiveMode() {
+      clearInterval(demoInterval);
+      clearInterval(liveInterval);
+      const badge = document.getElementById('modeBadge');
+      badge.textContent = 'API EN VIVO CONECTADA';
+      badge.className = 'text-[11px] font-mono-num px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+      fetchFinnhubNews();
+      liveInterval = setInterval(fetchFinnhubNews, 30000);
+    }
+
+    function startDemoMode() {
+      clearInterval(demoInterval);
+      clearInterval(liveInterval);
+      const badge = document.getElementById('modeBadge');
+      badge.textContent = 'MODO DEMO EN VIVO';
+      badge.className = 'text-[11px] font-mono-num px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20';
+      renderFeed();
+      demoInterval = setInterval(() => {
+        if (isPaused) return;
+        const sample = LIVE_POOL[Math.floor(Math.random() * LIVE_POOL.length)];
+        newsItems.unshift({
+          id: Date.now(),
+          time: getCurrentTimeStr(),
+          source: sample.source,
+          title: sample.title,
+          summary: sample.summary,
+          ticker: sample.ticker,
+          trend: sample.trend,
+          category: sample.category,
+          url: '#'
+        });
+        if (newsItems.length > 50) newsItems.pop();
+        renderFeed(true);
+      }, 9000);
+    }
+
+    // Inicialización
+    if (finnhubKey) {
+      startLiveMode();
+    } else {
+      startDemoMode();
+    }
+  </script>
+</body>
+</html>
