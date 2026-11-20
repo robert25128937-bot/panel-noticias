@@ -163,6 +163,11 @@
 
       <div id="apiFields" class="space-y-3 mb-3"></div>
 
+      <div class="mb-3">
+        <label class="block text-[11px] font-medium text-slate-300 mb-1">Feeds RSS <span class="text-slate-500">(Etiqueta | URL o google:consulta | Símbolo | Categoría). Una línea por feed; # comenta</span></label>
+        <textarea id="rssFeedsInput" rows="8" spellcheck="false" class="w-full bg-[#0a0f14] border border-[#263545] focus:border-emerald-500 rounded px-3 py-1.5 text-[11px] font-mono-num text-white outline-none whitespace-pre"></textarea>
+      </div>
+
       <div class="grid grid-cols-2 gap-3 mb-4">
         <div>
           <label class="block text-[11px] font-medium text-slate-300 mb-1">Frecuencia de consulta</label>
@@ -194,15 +199,35 @@
        CONFIGURACIÓN
     ============================================================ */
     const PROVIDER_META = {
+      rss:       { label: 'RSS gratis (tu Worker)', hint: 'URL de tu Cloudflare Worker: Google News, Yahoo, CoinDesk...', site: 'workers.dev' },
       finnhub:   { label: 'Finnhub',   hint: 'Acciones, forex, cripto, macro. Plan gratis o premium', site: 'finnhub.io' },
       fmp:       { label: 'Financial Modeling Prep', hint: 'Noticias de acciones, cripto, forex y generales', site: 'financialmodelingprep.com' },
       marketaux: { label: 'Marketaux', hint: 'Todos los activos con sentimiento por noticia', site: 'marketaux.com' },
       polygon:   { label: 'Polygon.io', hint: 'Acciones, cripto, forex; incluye sentimiento (plan de pago)', site: 'polygon.io' },
       benzinga:  { label: 'Benzinga',  hint: 'Feed profesional casi en tiempo real (plan de pago)', site: 'benzinga.com' }
     };
-    const PROVIDER_ORDER = ['finnhub', 'fmp', 'marketaux', 'polygon', 'benzinga'];
+    const PROVIDER_ORDER = ['rss', 'finnhub', 'fmp', 'marketaux', 'polygon', 'benzinga'];
 
-    const DEFAULT_CFG = { finnhub: '', fmp: '', marketaux: '', polygon: '', benzinga: '', proxy: '', interval: 30 };
+    const DEFAULT_CFG = { rss: '', rssFeeds: '', finnhub: '', fmp: '', marketaux: '', polygon: '', benzinga: '', proxy: '', interval: 30 };
+    const PROVIDER_MIN_S = { rss: 60 }; // segundos mínimos entre consultas de cada proveedor
+
+    /* Feeds RSS por defecto. Formato por línea: Etiqueta | URL | Símbolo (opcional) | Categoría (opcional)
+       Atajos en la URL:  google:consulta   google-es:consulta   yahoo:SÍMBOLO */
+    const DEFAULT_RSS_TEXT = `# Etiqueta | URL (o google:consulta / google-es:consulta / yahoo:SIMBOLO) | Símbolo | Categoría
+Oro | google:gold price OR XAUUSD | XAUUSD
+Petróleo | google:crude oil OR WTI OR Brent | USOIL
+S&P 500 | google:"S&P 500" | US500
+Nasdaq | google:Nasdaq 100 OR Nasdaq futures | US100
+EUR/USD | google:EURUSD OR "EUR/USD" | EURUSD
+USD/MXN | google-es:peso mexicano dólar tipo de cambio | USDMXN
+Bitcoin | google:bitcoin | BTCUSD
+Macro | google:Federal Reserve OR Treasury yields OR CPI inflation | US10Y
+Nvidia | yahoo:NVDA | NVDA
+CoinDesk | https://www.coindesk.com/arc/outboundfeeds/rss/ | | CRYPTO
+Cointelegraph | https://cointelegraph.com/rss | | CRYPTO
+FXStreet | https://www.fxstreet.com/rss/news | | FOREX
+CNBC | https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114
+MarketWatch | https://feeds.marketwatch.com/marketwatch/topstories/`;
     const DEFAULT_WATCHLIST = ['US500', 'NVDA', 'BTCUSD', 'XAUUSD', 'US10Y', 'EURUSD'];
     const MAX_ITEMS = 300;
     const MAX_ROWS = 150;
@@ -289,6 +314,7 @@
     let fetching = false;
     let lastUpdate = 0;
     let providerStatus = {};
+    let lastRun = {};
     let bannerTimeout = null;
     let demoInterval = null;
     let liveInterval = null;
@@ -327,7 +353,7 @@
 
     function friendlyError(e) {
       const m = String((e && e.message) || e);
-      if (/HTTP 401|HTTP 403/.test(m)) return m + ' (clave inválida o sin permiso en tu plan)';
+      if (/HTTP 401|HTTP 403/.test(m) && !m.includes('(')) return m + ' (clave inválida o sin permiso en tu plan)';
       if (/HTTP 402/.test(m)) return 'HTTP 402 (requiere plan de pago)';
       if (/HTTP 429/.test(m)) return 'HTTP 429 (límite de llamadas; sube el intervalo)';
       if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Bloqueado por CORS, red o adblock (prueba con un proxy)';
@@ -383,6 +409,7 @@
 
       const provided = (n.symbols || []).map(normalizeSymbol).filter(s => s && s.length <= 8);
       provided.forEach(s => { if (watchlist.includes(s) && !tags.includes(s)) tags.push(s); });
+      if (n.hint) { const i = tags.indexOf(n.hint); if (i > -1) tags.splice(i, 1); tags.unshift(n.hint); }
 
       const ticker = tags[0] || provided[0] || null;
       let category;
@@ -418,7 +445,92 @@
 
     function stockSymbols() { return watchlist.filter(s => categoryOf(s) === 'ACCIONES'); }
 
+    /* ---------- RSS ---------- */
+    function workerBase(w) {
+      w = String(w).trim();
+      if (/url=$/.test(w)) return w;
+      return w.replace(/[?&\/]+$/, '') + '/?url=';
+    }
+
+    async function getText(url) {
+      const res = await fetch(url);
+      if (res.status === 403) throw new Error('HTTP 403 (host no permitido en el Worker)');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.text();
+    }
+
+    function googleNewsUrl(q, es) {
+      return `https://news.google.com/rss/search?q=${encodeURIComponent(q + ' when:1d')}&hl=${es ? 'es-419' : 'en-US'}&gl=${es ? 'MX' : 'US'}&ceid=${es ? 'MX:es-419' : 'US:en'}`;
+    }
+
+    function expandFeedUrl(u) {
+      if (/^google-es:/i.test(u)) return googleNewsUrl(u.slice(10).trim(), true);
+      if (/^google:/i.test(u)) return googleNewsUrl(u.slice(7).trim(), false);
+      if (/^yahoo:/i.test(u)) return `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(u.slice(6).trim().toUpperCase())}&region=US&lang=en-US`;
+      return u;
+    }
+
+    function parseRssLines(text) {
+      return String(text).split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')).map(l => {
+        const [name, url, sym, cat] = l.split('|').map(x => (x || '').trim());
+        return { name: name || 'RSS', url: expandFeedUrl(url || ''), symbol: sym ? normalizeSymbol(sym) : '', forced: (cat || '').toUpperCase() };
+      }).filter(f => /^https:\/\//i.test(f.url));
+    }
+
+    function buildRssFeeds() {
+      const feeds = parseRssLines(cfg.rssFeeds || DEFAULT_RSS_TEXT);
+      const covered = new Set(feeds.map(f => f.symbol).filter(Boolean));
+      // Las acciones que agregues a tu watchlist reciben su propio feed automáticamente
+      stockSymbols().filter(s => !covered.has(s)).slice(0, 10).forEach(s => {
+        feeds.push({ name: 'Google News', url: googleNewsUrl(`${s} stock`, false), symbol: s, forced: '' });
+      });
+      return feeds;
+    }
+
+    function stripHtml(s) {
+      if (!s) return '';
+      const d = new DOMParser().parseFromString(s, 'text/html');
+      return (d.body.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function parseRss(xmlText, feed) {
+      const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+      if (doc.querySelector('parsererror')) throw new Error('XML inválido');
+      const nodes = [...doc.getElementsByTagName('item')].concat([...doc.getElementsByTagName('entry')]);
+      const isGoogle = /news\.google\.com/.test(feed.url);
+      return nodes.slice(0, 25).map(it => {
+        const g = t => { const e = it.getElementsByTagName(t)[0]; return e ? (e.textContent || '').trim() : ''; };
+        let title = g('title');
+        let source = feed.name;
+        const src = g('source');
+        if (src) {
+          source = src;
+          const suffix = ' - ' + src;
+          if (title.endsWith(suffix)) title = title.slice(0, -suffix.length);
+        }
+        const linkEl = it.getElementsByTagName('link')[0];
+        const link = g('link') || (linkEl ? linkEl.getAttribute('href') || '' : '');
+        return {
+          ts: parseDateSec(g('pubDate') || g('published') || g('updated') || g('dc:date')) || Math.floor(Date.now() / 1000),
+          source, title, summary: isGoogle ? '' : stripHtml(g('description') || g('summary') || g('content')).slice(0, 600),
+          url: link, symbols: feed.symbol ? [feed.symbol] : [], hint: feed.symbol || '', forced: feed.forced || '', trend: 'neutral'
+        };
+      });
+    }
+
     const PROVIDERS = {
+      /* ---- RSS gratis vía tu Cloudflare Worker ---- */
+      async rss(worker) {
+        const base = workerBase(worker);
+        const feeds = buildRssFeeds();
+        if (!feeds.length) throw new Error('No hay feeds válidos en la lista');
+        const results = await Promise.allSettled(feeds.map(f => getText(base + encodeURIComponent(f.url)).then(x => parseRss(x, f))));
+        const ok = results.filter(r => r.status === 'fulfilled');
+        if (!ok.length) throw results[0].reason;
+        const detail = results.map((r, i) => r.status === 'rejected' ? `${feeds[i].name}: ${friendlyError(r.reason)}` : '').filter(Boolean).join(' | ');
+        return { items: ok.flatMap(r => r.value), failed: results.length - ok.length, detail };
+      },
+
       /* ---- Finnhub: general + cripto + forex + noticias por empresa ---- */
       async finnhub(key) {
         const k = encodeURIComponent(key);
@@ -564,10 +676,12 @@
       fetching = true;
       $('refreshBtn').textContent = '⟳ Consultando…';
 
-      const batches = await Promise.all(names.map(async name => {
+      const due = names.filter(n => manual || !lastRun[n] || Date.now() - lastRun[n] >= ((PROVIDER_MIN_S[n] || 0) * 1000 - 500));
+      const batches = await Promise.all(due.map(async name => {
         try {
+          lastRun[name] = Date.now();
           const r = await PROVIDERS[name](cfg[name].trim());
-          providerStatus[name] = { ok: true, count: r.items.length, failed: r.failed };
+          providerStatus[name] = { ok: true, count: r.items.length, failed: r.failed, detail: r.detail };
           return r.items;
         } catch (e) {
           console.error(name, e);
@@ -600,7 +714,7 @@
         const label = PROVIDER_META[n].label;
         if (!s) return `<span class="text-slate-500">● ${esc(label)} …</span>`;
         if (!s.ok) return `<span class="text-rose-400" title="${esc(s.error)}">✗ ${esc(label)}: ${esc(s.error)}</span>`;
-        const warn = s.failed ? ` <span class="text-amber-400">(${s.failed} consultas fallaron)</span>` : '';
+        const warn = s.failed ? ` <span class="text-amber-400" title="${esc(s.detail || '')}">(${s.failed} consultas fallaron)</span>` : '';
         return `<span class="text-emerald-400">✓ ${esc(label)} <span class="text-slate-400">${s.count}</span>${warn}</span>`;
       });
       const upd = lastUpdate ? `<span class="text-slate-500 ml-auto">Última consulta ${new Date(lastUpdate).toTimeString().slice(0, 8)} · cada ${cfg.interval}s</span>` : '';
@@ -611,7 +725,7 @@
       clearInterval(demoInterval);
       clearInterval(liveInterval);
       mode = 'live';
-      newsItems = []; seen = new Set(); providerStatus = {}; firstLoad = true;
+      newsItems = []; seen = new Set(); providerStatus = {}; lastRun = {}; firstLoad = true;
       const badge = $('modeBadge');
       badge.textContent = `EN VIVO · ${activeProviders().length} API${activeProviders().length > 1 ? 'S' : ''}`;
       badge.className = 'text-[11px] font-mono-num px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
@@ -868,10 +982,11 @@
           <label class="block text-[11px] font-medium text-slate-300 mb-1">
             ${i + 1}. ${esc(PROVIDER_META[n].label)} <span class="text-slate-500">(${esc(PROVIDER_META[n].hint)})</span>
           </label>
-          <input type="password" autocomplete="off" id="key_${n}" value="${esc(cfg[n] || '')}" placeholder="Clave de ${esc(PROVIDER_META[n].site)}"
+          <input type="${n === 'rss' ? 'text' : 'password'}" autocomplete="off" id="key_${n}" value="${esc(cfg[n] || '')}" placeholder="${n === 'rss' ? 'https://tu-worker.tu-usuario.workers.dev' : 'Clave de ' + esc(PROVIDER_META[n].site)}"
             class="w-full bg-[#0a0f14] border border-[#263545] focus:border-emerald-500 rounded px-3 py-1.5 text-xs font-mono-num text-white outline-none" />
         </div>`).join('');
       $('proxyInput').value = cfg.proxy || '';
+      $('rssFeedsInput').value = cfg.rssFeeds || DEFAULT_RSS_TEXT;
       $('intervalSelect').value = String(cfg.interval);
       $('apiModal').classList.remove('hidden');
     }
@@ -883,6 +998,7 @@
     function saveApis() {
       PROVIDER_ORDER.forEach(n => { cfg[n] = $('key_' + n).value.trim(); });
       cfg.proxy = $('proxyInput').value.trim();
+      cfg.rssFeeds = $('rssFeedsInput').value;
       cfg.interval = Number($('intervalSelect').value) || 30;
       localStorage.setItem('news_cfg', JSON.stringify(cfg));
       closeApiModal();
