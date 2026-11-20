@@ -16,82 +16,57 @@
       padding: 0;
       overflow-x: hidden;
     }
+    .font-mono-num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
 
-    .font-mono-num {
-      font-family: 'JetBrains Mono', monospace;
-      font-variant-numeric: tabular-nums;
-    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0f14; }
+    ::-webkit-scrollbar-thumb { background: #23303e; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334558; }
 
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #0a0f14;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #23303e;
-      border-radius: 3px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #334558;
-    }
+    @keyframes flashRow { 0% { background-color: rgba(34,197,94,0.24); } 100% { background-color: transparent; } }
+    .new-flash { animation: flashRow 2.5s ease-out; }
 
-    @keyframes flashRow {
-      0% { background-color: rgba(34, 197, 94, 0.24); }
-      100% { background-color: transparent; }
-    }
-    .new-flash {
-      animation: flashRow 2s ease-out;
-    }
-
-    @keyframes pulseAlert {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45); }
-      50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-    }
-    .alert-pulse {
-      animation: pulseAlert 1.4s ease-out 2;
-    }
+    @keyframes pulseAlert { 0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.45); } 50% { box-shadow: 0 0 0 6px rgba(16,185,129,0); } }
+    .alert-pulse { animation: pulseAlert 1.4s ease-out 2; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
-  <!-- Barra Superior -->
+  <!-- Barra superior -->
   <header class="bg-[#0e151c] border-b border-[#1f2b37] px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-20">
     <div class="flex items-center gap-3">
       <div class="flex items-center gap-2">
         <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" id="liveDot"></span>
-        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
-        </svg>
         <h1 class="text-sm font-semibold tracking-wide text-slate-100 uppercase">Tape Global • Watchlist & Alertas</h1>
       </div>
-      <span id="modeBadge" class="text-[11px] font-mono-num px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-        MODO DEMO EN VIVO
-      </span>
+      <span id="modeBadge" class="text-[11px] font-mono-num px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">MODO DEMO EN VIVO</span>
     </div>
 
     <div class="flex items-center gap-2 flex-wrap">
       <span id="clockDisplay" class="text-xs font-mono-num text-slate-400 mr-1 hidden sm:inline">--:--:--</span>
 
+      <button onclick="refreshNow()" id="refreshBtn" title="Consultar las APIs ahora" class="px-2.5 py-1 text-xs rounded border border-[#243240] bg-[#131c24] hover:bg-[#1a2631] text-slate-300 transition">
+        ⟳ Actualizar
+      </button>
+
       <button onclick="toggleSound()" id="soundBtn" title="Activar o silenciar alerta sonora" class="px-2.5 py-1 text-xs rounded border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition flex items-center gap-1.5">
-        <span id="soundIcon">🔔</span>
-        <span id="soundText">Sonido ON</span>
+        <span id="soundIcon">🔔</span><span id="soundText">Sonido ON</span>
       </button>
 
       <button onclick="togglePause()" id="pauseBtn" class="px-2.5 py-1 text-xs rounded border border-[#243240] bg-[#131c24] hover:bg-[#1a2631] text-slate-300 transition flex items-center gap-1.5">
-        <span id="pauseIcon">⏸</span>
-        <span id="pauseText">Pausar</span>
+        <span id="pauseIcon">⏸</span><span id="pauseText">Pausar</span>
       </button>
 
       <button onclick="openApiModal()" class="px-2.5 py-1 text-xs rounded border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-medium transition flex items-center gap-1.5">
-        <span>⚡</span>
-        <span>Conectar APIs</span>
+        <span>⚡</span><span>Conectar APIs</span>
       </button>
     </div>
   </header>
 
-  <!-- Banner de Alerta Visual al Llegar Noticia Nueva -->
+  <!-- Estado de cada proveedor (aquí ves si una API falla y por qué) -->
+  <div id="statusBar" class="hidden bg-[#0b1117] border-b border-[#19232e] px-4 py-1.5 text-[11px] font-mono-num flex flex-wrap items-center gap-x-4 gap-y-1"></div>
+
+  <!-- Banner de alerta -->
   <div id="alertBanner" class="hidden bg-emerald-950/80 border-b border-emerald-500/40 px-4 py-1.5 text-xs text-emerald-200 flex items-center justify-between gap-2">
     <div class="flex items-center gap-2 min-w-0">
       <span class="px-1.5 py-0.5 rounded bg-emerald-500 text-slate-950 font-mono-num font-bold text-[10px] shrink-0">NUEVA</span>
@@ -100,114 +75,64 @@
     <button onclick="hideAlertBanner()" class="text-emerald-300 hover:text-white text-xs shrink-0">✕</button>
   </div>
 
-  <!-- Barra de Filtros Multi-Mercado -->
+  <!-- Filtros -->
   <section class="bg-[#111820] border-b border-[#1f2b37] px-4 py-2.5">
     <div class="max-w-7xl mx-auto flex flex-col xl:flex-row xl:items-center justify-between gap-2.5">
-      
-      <!-- Pestañas de Mercados -->
       <div class="flex items-center gap-1.5 flex-wrap">
-        <button onclick="setCategory('ALL')" data-cat="ALL" class="cat-btn active px-2.5 py-1 text-xs rounded font-medium bg-[#1e2936] text-white border border-[#334457] transition">
-          Todos
-        </button>
-        <button onclick="setCategory('ACCIONES')" data-cat="ACCIONES" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-slate-200 transition">
-          Acciones
-        </button>
-        <button onclick="setCategory('INDICES')" data-cat="INDICES" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-slate-200 transition">
-          Índices
-        </button>
-        <button onclick="setCategory('CRYPTO')" data-cat="CRYPTO" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-amber-300 transition">
-          Cripto / BTC
-        </button>
-        <button onclick="setCategory('COMMODITIES')" data-cat="COMMODITIES" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-yellow-300 transition">
-          Oro / Petróleo
-        </button>
-        <button onclick="setCategory('FOREX')" data-cat="FOREX" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-purple-300 transition">
-          Forex
-        </button>
-        <button onclick="setCategory('BONOS')" data-cat="BONOS" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-sky-300 transition">
-          Bonos / Macro
-        </button>
+        <button onclick="setCategory('ALL')" data-cat="ALL" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#1e2936] text-white border border-[#334457] transition">Todos</button>
+        <button onclick="setCategory('ACCIONES')" data-cat="ACCIONES" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-slate-200 transition">Acciones</button>
+        <button onclick="setCategory('INDICES')" data-cat="INDICES" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-slate-200 transition">Índices</button>
+        <button onclick="setCategory('CRYPTO')" data-cat="CRYPTO" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-amber-300 transition">Cripto / BTC</button>
+        <button onclick="setCategory('COMMODITIES')" data-cat="COMMODITIES" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-yellow-300 transition">Oro / Petróleo</button>
+        <button onclick="setCategory('FOREX')" data-cat="FOREX" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-purple-300 transition">Forex</button>
+        <button onclick="setCategory('BONOS')" data-cat="BONOS" class="cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-sky-300 transition">Bonos / Macro</button>
       </div>
 
-      <!-- Buscadores: Símbolo + Texto -->
       <div class="flex items-center gap-2 flex-1 xl:max-w-md">
         <div class="relative w-36 sm:w-40">
-          <input
-            type="text"
-            id="symbolInput"
-            oninput="syncWatchlistActive(); renderFeed();"
-            placeholder="Símbolo (NVDA, EURUSD...)"
-            class="w-full bg-[#0a0f14] border border-[#1f2b37] focus:border-emerald-500/60 rounded px-2.5 py-1 text-xs font-mono-num uppercase text-slate-200 placeholder-slate-500 outline-none transition"
-          />
+          <input type="text" id="symbolInput" oninput="renderWatchlist(); renderFeed();" placeholder="Símbolo (NVDA, EURUSD...)"
+            class="w-full bg-[#0a0f14] border border-[#1f2b37] focus:border-emerald-500/60 rounded px-2.5 py-1 text-xs font-mono-num uppercase text-slate-200 placeholder-slate-500 outline-none transition" />
         </div>
         <div class="relative flex-1">
-          <input
-            type="text"
-            id="searchInput"
-            oninput="renderFeed()"
-            placeholder="Buscar titular, catalizador o fuente..."
-            class="w-full bg-[#0a0f14] border border-[#1f2b37] focus:border-emerald-500/60 rounded pl-7 pr-6 py-1 text-xs text-slate-200 placeholder-slate-500 outline-none transition"
-          />
-          <svg class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-          </svg>
-          <button onclick="clearFilters()" title="Limpiar filtros" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs">
-            ✕
-          </button>
+          <input type="text" id="searchInput" oninput="renderFeed()" placeholder="Buscar titular, catalizador o fuente..."
+            class="w-full bg-[#0a0f14] border border-[#1f2b37] focus:border-emerald-500/60 rounded pl-3 pr-6 py-1 text-xs text-slate-200 placeholder-slate-500 outline-none transition" />
+          <button onclick="clearFilters()" title="Limpiar filtros" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs">✕</button>
         </div>
       </div>
-
     </div>
 
-    <!-- Barra Rápida de Watchlist -->
+    <!-- Watchlist -->
     <div class="max-w-7xl mx-auto mt-2.5 pt-2 border-t border-[#19232e] flex flex-wrap items-center justify-between gap-2">
-      <div class="flex items-center gap-1.5 flex-wrap" id="watchlistContainer">
-        <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">Watchlist:</span>
-        <!-- Botones generados vía JS -->
-      </div>
+      <div class="flex items-center gap-1.5 flex-wrap" id="watchlistContainer"></div>
 
       <div class="flex items-center gap-1.5">
-        <input
-          type="text"
-          id="newWatchInput"
-          onkeydown="if(event.key==='Enter') addWatchTicker()"
-          placeholder="+ Símbolo (AAPL, SOL...)"
-          class="w-32 bg-[#0a0f14] border border-[#1f2b37] focus:border-emerald-500/60 rounded px-2 py-0.5 text-[11px] font-mono-num uppercase text-slate-200 placeholder-slate-500 outline-none"
-        />
-        <button onclick="addWatchTicker()" class="px-2 py-0.5 text-[11px] rounded bg-[#18232f] hover:bg-[#223244] text-emerald-400 border border-[#28394c] font-medium transition">
-          Añadir
+        <button onclick="toggleOnlyWatch()" id="onlyWatchBtn" title="Mostrar solo noticias de tu watchlist"
+          class="px-2 py-0.5 text-[11px] rounded border border-[#1f2b37] bg-[#0d131a] text-slate-400 hover:text-slate-200 font-medium transition">
+          Solo mi watchlist
         </button>
+        <input type="text" id="newWatchInput" onkeydown="if(event.key==='Enter') addWatchTicker()" placeholder="+ Símbolo (AAPL, SOL...)"
+          class="w-32 bg-[#0a0f14] border border-[#1f2b37] focus:border-emerald-500/60 rounded px-2 py-0.5 text-[11px] font-mono-num uppercase text-slate-200 placeholder-slate-500 outline-none" />
+        <button onclick="addWatchTicker()" class="px-2 py-0.5 text-[11px] rounded bg-[#18232f] hover:bg-[#223244] text-emerald-400 border border-[#28394c] font-medium transition">Añadir</button>
       </div>
     </div>
   </section>
 
-  <!-- Contenedor Principal -->
+  <!-- Lista de noticias -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4 py-3">
     <div id="tapeCard" class="bg-[#0e141b] border border-[#1f2b37] rounded-md overflow-hidden shadow-xl transition-colors">
-      
-      <!-- Encabezado de columnas -->
       <div class="grid grid-cols-[52px_120px_1fr_92px] sm:grid-cols-[58px_145px_1fr_104px] items-center px-3 py-1.5 bg-[#121a23] border-b border-[#1f2b37] text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-        <div>Hora</div>
-        <div>Fuente</div>
-        <div>Titular / Catalizador</div>
-        <div class="text-right">Activo</div>
+        <div>Hora</div><div>Fuente</div><div>Titular / Catalizador</div><div class="text-right">Activo</div>
       </div>
-
-      <!-- Lista dinámica -->
-      <div id="newsList" class="divide-y divide-[#18222d] max-h-[calc(100vh-215px)] overflow-y-auto"></div>
-
-      <!-- Estado vacío -->
-      <div id="emptyState" class="hidden py-12 text-center text-slate-500 text-xs">
-        No hay titulares que coincidan con este filtro. Prueba limpiar el buscador o cambiar de pestaña.
-      </div>
+      <div id="newsList" class="divide-y divide-[#18222d] max-h-[calc(100vh-235px)] overflow-y-auto"></div>
+      <div id="emptyState" class="hidden py-12 text-center text-slate-500 text-xs"></div>
     </div>
   </main>
 
-  <!-- Modal Vista Previa -->
-  <div id="articleModal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-xs z-40 flex items-center justify-center p-4" onclick="closeArticleModal(event)">
+  <!-- Modal de artículo -->
+  <div id="articleModal" class="hidden fixed inset-0 bg-black/75 z-40 flex items-center justify-center p-4" onclick="closeArticleModal(event)">
     <div class="bg-[#111820] border border-[#263545] rounded-lg max-w-lg w-full p-5 shadow-2xl" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <span id="modalBadge" class="px-2 py-0.5 text-xs font-mono-num font-semibold rounded bg-slate-800 text-emerald-400"></span>
           <span id="modalCatTag" class="px-2 py-0.5 text-[10px] uppercase font-semibold rounded bg-[#18232f] text-slate-300"></span>
           <span id="modalSource" class="text-xs text-slate-400 font-medium"></span>
@@ -220,62 +145,68 @@
       <p id="modalSummary" class="text-xs text-slate-300 leading-relaxed mb-4"></p>
       <div class="flex items-center justify-between pt-3 border-t border-[#1f2b37]">
         <span class="text-[11px] text-slate-500">Terminal Global Multi-Activo</span>
-        <a id="modalLink" href="#" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition">
-          Abrir fuente original ↗
-        </a>
+        <a id="modalLink" href="#" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition">Abrir fuente original ↗</a>
       </div>
     </div>
   </div>
 
-  <!-- Modal Configuración APIs -->
-  <div id="apiModal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-xs z-40 flex items-center justify-center p-4" onclick="closeApiModal(event)">
-    <div class="bg-[#111820] border border-[#263545] rounded-lg max-w-md w-full p-5 shadow-2xl" onclick="event.stopPropagation()">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-semibold text-white">Conectar APIs de Mercado en Vivo</h3>
+  <!-- Modal de APIs -->
+  <div id="apiModal" class="hidden fixed inset-0 bg-black/75 z-40 flex items-center justify-center p-4 overflow-y-auto" onclick="closeApiModal(event)">
+    <div class="bg-[#111820] border border-[#263545] rounded-lg max-w-lg w-full p-5 shadow-2xl my-auto" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-sm font-semibold text-white">Conectar APIs de noticias</h3>
         <button onclick="closeApiModal()" class="text-slate-400 hover:text-white text-sm">✕</button>
       </div>
-      <p class="text-xs text-slate-300 leading-relaxed mb-3">
-        Conecta una o ambas claves gratuitas para recibir noticias reales y clasificarlas automáticamente entre todos los mercados.
+      <p class="text-xs text-slate-400 leading-relaxed mb-3">
+        Conecta una o varias. Las noticias se fusionan, se quitan duplicados y se clasifican por activo. Las claves se guardan solo en este navegador.
       </p>
 
-      <div class="space-y-3 mb-4">
-        <div>
-          <label class="block text-[11px] font-medium text-slate-300 mb-1">
-            1. Finnhub API Key <span class="text-slate-500">(Acciones, Índices, Forex, Cripto y Macro)</span>
-          </label>
-          <input
-            type="text"
-            id="finnhubInput"
-            placeholder="Pega tu clave de finnhub.io..."
-            class="w-full bg-[#0a0f14] border border-[#263545] focus:border-emerald-500 rounded px-3 py-1.5 text-xs font-mono-num text-white outline-none"
-          />
-        </div>
+      <div id="apiFields" class="space-y-3 mb-3"></div>
 
+      <div class="grid grid-cols-2 gap-3 mb-4">
         <div>
-          <label class="block text-[11px] font-medium text-slate-300 mb-1">
-            2. Financial Modeling Prep API Key <span class="text-slate-500">(Opcional: Noticias bursátiles adicionales)</span>
-          </label>
-          <input
-            type="text"
-            id="fmpInput"
-            placeholder="Pega tu clave de financialmodelingprep.com..."
-            class="w-full bg-[#0a0f14] border border-[#263545] focus:border-emerald-500 rounded px-3 py-1.5 text-xs font-mono-num text-white outline-none"
-          />
+          <label class="block text-[11px] font-medium text-slate-300 mb-1">Frecuencia de consulta</label>
+          <select id="intervalSelect" class="w-full bg-[#0a0f14] border border-[#263545] rounded px-2 py-1.5 text-xs text-white outline-none">
+            <option value="10">Cada 10 s (planes de pago)</option>
+            <option value="15">Cada 15 s</option>
+            <option value="30">Cada 30 s</option>
+            <option value="60">Cada 1 min</option>
+            <option value="120">Cada 2 min</option>
+            <option value="300">Cada 5 min (planes gratis)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-medium text-slate-300 mb-1">Proxy CORS <span class="text-slate-500">(opcional)</span></label>
+          <input type="text" id="proxyInput" placeholder="https://mi-worker.dev/?url="
+            class="w-full bg-[#0a0f14] border border-[#263545] focus:border-emerald-500 rounded px-2 py-1.5 text-xs font-mono-num text-white outline-none" />
         </div>
       </div>
 
       <div class="flex items-center justify-between gap-2 pt-2 border-t border-[#1f2b37]">
-        <button onclick="disconnectApis()" class="px-3 py-1.5 rounded border border-[#263545] text-xs text-slate-400 hover:text-white">
-          Volver a Demo
-        </button>
-        <button onclick="saveApis()" class="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold">
-          Guardar y Conectar
-        </button>
+        <button onclick="disconnectApis()" class="px-3 py-1.5 rounded border border-[#263545] text-xs text-slate-400 hover:text-white">Volver a Demo</button>
+        <button onclick="saveApis()" class="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold">Guardar y Conectar</button>
       </div>
     </div>
   </div>
 
   <script>
+    /* ============================================================
+       CONFIGURACIÓN
+    ============================================================ */
+    const PROVIDER_META = {
+      finnhub:   { label: 'Finnhub',   hint: 'Acciones, forex, cripto, macro. Plan gratis o premium', site: 'finnhub.io' },
+      fmp:       { label: 'Financial Modeling Prep', hint: 'Noticias de acciones, cripto, forex y generales', site: 'financialmodelingprep.com' },
+      marketaux: { label: 'Marketaux', hint: 'Todos los activos con sentimiento por noticia', site: 'marketaux.com' },
+      polygon:   { label: 'Polygon.io', hint: 'Acciones, cripto, forex; incluye sentimiento (plan de pago)', site: 'polygon.io' },
+      benzinga:  { label: 'Benzinga',  hint: 'Feed profesional casi en tiempo real (plan de pago)', site: 'benzinga.com' }
+    };
+    const PROVIDER_ORDER = ['finnhub', 'fmp', 'marketaux', 'polygon', 'benzinga'];
+
+    const DEFAULT_CFG = { finnhub: '', fmp: '', marketaux: '', polygon: '', benzinga: '', proxy: '', interval: 30 };
+    const DEFAULT_WATCHLIST = ['US500', 'NVDA', 'BTCUSD', 'XAUUSD', 'US10Y', 'EURUSD'];
+    const MAX_ITEMS = 300;
+    const MAX_ROWS = 150;
+
     const SOURCE_STYLES = {
       'Seeking Alpha': { bg: 'bg-orange-500', text: 'text-white', label: 'SA' },
       'The Motley Fool': { bg: 'bg-purple-600', text: 'text-white', label: 'MF' },
@@ -286,98 +217,480 @@
       'CNBC': { bg: 'bg-sky-600', text: 'text-white', label: 'CNBC' },
       'CoinDesk': { bg: 'bg-yellow-500', text: 'text-slate-950', label: 'CD' },
       'Kitco': { bg: 'bg-amber-400', text: 'text-slate-950', label: 'XAU' },
-      'FXStreet': { bg: 'bg-violet-600', text: 'text-white', label: 'FX' }
+      'FXStreet': { bg: 'bg-violet-600', text: 'text-white', label: 'FX' },
+      'Benzinga': { bg: 'bg-red-600', text: 'text-white', label: 'BZ' },
+      'Yahoo': { bg: 'bg-indigo-600', text: 'text-white', label: 'Y!' }
     };
 
     const CATEGORY_LABELS = {
-      'ACCIONES': 'Acciones',
-      'INDICES': 'Índices',
-      'CRYPTO': 'Cripto',
-      'COMMODITIES': 'Commodities',
-      'FOREX': 'Forex',
-      'BONOS': 'Bonos / Macro'
+      'ACCIONES': 'Acciones', 'INDICES': 'Índices', 'CRYPTO': 'Cripto',
+      'COMMODITIES': 'Commodities', 'FOREX': 'Forex', 'BONOS': 'Bonos / Macro'
     };
 
-    const DEFAULT_WATCHLIST = ['US500', 'NVDA', 'BTCUSD', 'XAUUSD', 'US10Y', 'EURUSD'];
-    let watchlist = JSON.parse(localStorage.getItem('user_watchlist') || 'null') || [...DEFAULT_WATCHLIST];
+    /* Palabras que permiten asignar una noticia a un símbolo aunque la API no lo traiga.
+       Para cualquier otro símbolo de tu watchlist se usa el propio ticker. */
+    const DEFAULT_ALIASES = {
+      US500:  ['s&p 500', 's&p500', 'us500', 'spx'],
+      US100:  ['nasdaq 100', 'nasdaq', 'us100', 'ndx'],
+      US30:   ['dow jones', 'us30', 'djia'],
+      BTCUSD: ['bitcoin', 'btc', 'btcusd'],
+      ETHUSD: ['ethereum', 'ether', 'eth', 'ethusd'],
+      SOLUSD: ['solana', 'solusd'],
+      XAUUSD: ['gold', 'xau', 'xauusd', 'oro'],
+      XAGUSD: ['silver', 'xag', 'xagusd', 'plata'],
+      USOIL:  ['oil', 'crude', 'wti', 'brent', 'petróleo', 'petroleo', 'usoil'],
+      US10Y:  ['10-year', '10 year', 'treasury yield', 'us10y', 'bono a 10'],
+      EURUSD: ['eur/usd', 'eurusd', 'euro dollar'],
+      GBPUSD: ['gbp/usd', 'gbpusd', 'cable'],
+      USDJPY: ['usd/jpy', 'usdjpy', 'yen'],
+      USDMXN: ['usd/mxn', 'usdmxn', 'peso mexicano', 'mexican peso'],
+      NVDA:   ['nvidia', 'nvda'],
+      AAPL:   ['apple', 'aapl'],
+      MSFT:   ['microsoft', 'msft'],
+      TSLA:   ['tesla', 'tsla'],
+      AMZN:   ['amazon', 'amzn'],
+      META:   ['meta platforms', 'facebook'],
+      GOOGL:  ['alphabet', 'google', 'googl']
+    };
 
-    let newsItems = [
-      { id: 1, time: '19:15', source: 'Reuters', title: 'Rendimiento del bono del Tesoro a 10 años sube a 4.42% tras datos sólidos de actividad', summary: 'El repunte en la tasa US10Y presiona valuaciones de crecimiento y mueve divisas globales.', ticker: 'US10Y', trend: 'up', category: 'BONOS', url: 'https://www.reuters.com' },
-      { id: 2, time: '19:12', source: 'Bloomberg', title: 'S&P 500 y Nasdaq moderan pérdidas intradía con rotación sectorial', summary: 'Los futuros US500 y US100 buscan estabilización tras la apertura americana.', ticker: 'US500', trend: 'down', category: 'INDICES', url: 'https://www.bloomberg.com' },
-      { id: 3, time: '19:08', source: 'Kitco', title: 'Oro al contado (XAUUSD) consolida sobre soporte clave mientras operadores vigilan tasas reales', summary: 'La demanda de refugio y compras institucionales sostienen al oro.', ticker: 'XAUUSD', trend: 'up', category: 'COMMODITIES', url: 'https://www.kitco.com' },
-      { id: 4, time: '19:04', source: 'CoinDesk', title: 'Bitcoin registra entradas en ETFs al contado y prueba resistencia de corto plazo', summary: 'El flujo en BTCUSD y altcoins principales repunta durante la sesión.', ticker: 'BTCUSD', trend: 'up', category: 'CRYPTO', url: 'https://www.coindesk.com' },
-      { id: 5, time: '19:00', source: 'FXStreet', title: 'EUR/USD oscila cerca de resistencia clave antes de datos macroeconómicos en EE. UU.', summary: 'El par EURUSD reacciona a diferenciales de tasas entre el BCE y la Reserva Federal.', ticker: 'EURUSD', trend: 'neutral', category: 'FOREX', url: 'https://www.fxstreet.com' },
-      { id: 6, time: '18:56', source: 'Reuters', title: 'Petróleo crudo WTI sube ante señales de ajuste en inventarios y oferta global', summary: 'Los futuros de energía USOIL avanzan con mayor volumen en la tarde.', ticker: 'USOIL', trend: 'up', category: 'COMMODITIES', url: 'https://www.reuters.com' },
-      { id: 7, time: '18:50', source: 'Seeking Alpha', title: 'Nvidia y grandes tecnológicas lideran volumen y revisiones de analistas', summary: 'Flujo activo en NVDA, AAPL y MSFT tras reportes y proyecciones sectoriales.', ticker: 'NVDA', trend: 'up', category: 'ACCIONES', url: 'https://seekingalpha.com' }
-    ];
+    const SYMBOL_MAP = { SPX: 'US500', GSPC: 'US500', NDX: 'US100', DJI: 'US30', BTC: 'BTCUSD', ETH: 'ETHUSD', SOL: 'SOLUSD', XAU: 'XAUUSD', XAG: 'XAGUSD' };
+    const COMMODITY_SET = new Set(['XAUUSD', 'XAGUSD', 'XPTUSD', 'USOIL', 'UKOIL', 'WTI', 'BRENT', 'NATGAS', 'COPPER']);
+    const INDEX_SET = new Set(['US500', 'US100', 'US30', 'US2000', 'DE40', 'UK100', 'JP225', 'VIX', 'SPX', 'NDX', 'DJI']);
+    const CRYPTO_RE = /^(BTC|ETH|SOL|XRP|ADA|DOGE|BNB|LTC|DOT|AVAX|LINK|MATIC)(USD|USDT)?$/;
+    const FOREX_RE = /^(EUR|GBP|USD|JPY|AUD|NZD|CAD|CHF|MXN)(EUR|GBP|USD|JPY|AUD|NZD|CAD|CHF|MXN)$/;
+    const BOND_RE = /^(US|DE|UK|JP)\d{1,2}Y$/;
 
     const LIVE_POOL = [
-      { source: 'Reuters', title: 'Tasa a 10 años (US10Y) retrocede 4 puntos básicos tras comentarios de la Fed', ticker: 'US10Y', trend: 'down', category: 'BONOS', summary: 'Ajuste en curva de rendimientos tras nuevas declaraciones de política monetaria.' },
-      { source: 'Kitco', title: 'Futuros del Oro (XAUUSD) repuntan 0.7% ante retroceso del índice dólar', ticker: 'XAUUSD', trend: 'up', category: 'COMMODITIES', summary: 'El metal dorado gana tracción intradía.' },
-      { source: 'CoinDesk', title: 'Bitcoin (BTCUSD) muestra mayor volatilidad en sesión americana', ticker: 'BTCUSD', trend: 'neutral', category: 'CRYPTO', summary: 'Aumento de actividad en derivados cripto.' },
-      { source: 'FXStreet', title: 'EUR/USD presiona zona técnica tras movimientos en rendimientos estadounidenses', ticker: 'EURUSD', trend: 'up', category: 'FOREX', summary: 'El par reacciona a flujos de tasas y apetito al riesgo.' },
-      { source: 'Bloomberg', title: 'Futuros del S&P 500 (US500) avanzan impulsados por tecnología y chips', ticker: 'US500', trend: 'up', category: 'INDICES', summary: 'El índice lidera el rebote intradía.' },
-      { source: 'Seeking Alpha', title: 'Nvidia (NVDA) concentra atención en volumen y flujo institucional', ticker: 'NVDA', trend: 'up', category: 'ACCIONES', summary: 'Alta liquidez y movimiento en acciones de semiconductores.' }
+      { source: 'Reuters', title: 'Tasa a 10 años (US10Y) retrocede 4 puntos básicos tras comentarios de la Fed', ticker: 'US10Y', trend: 'down', summary: 'Ajuste en la curva de rendimientos tras nuevas declaraciones de política monetaria.' },
+      { source: 'Kitco', title: 'Futuros del Oro (XAUUSD) repuntan 0.7% ante retroceso del índice dólar', ticker: 'XAUUSD', trend: 'up', summary: 'El metal dorado gana tracción intradía.' },
+      { source: 'CoinDesk', title: 'Bitcoin (BTCUSD) muestra mayor volatilidad en sesión americana', ticker: 'BTCUSD', trend: 'neutral', summary: 'Aumento de actividad en derivados cripto.' },
+      { source: 'FXStreet', title: 'EUR/USD presiona zona técnica tras movimientos en rendimientos estadounidenses', ticker: 'EURUSD', trend: 'up', summary: 'El par reacciona a flujos de tasas y apetito al riesgo.' },
+      { source: 'Bloomberg', title: 'Futuros del S&P 500 (US500) avanzan impulsados por tecnología y chips', ticker: 'US500', trend: 'up', summary: 'El índice lidera el rebote intradía.' },
+      { source: 'Seeking Alpha', title: 'Nvidia (NVDA) concentra atención en volumen y flujo institucional', ticker: 'NVDA', trend: 'up', summary: 'Alta liquidez y movimiento en semiconductores.' },
+      { source: 'Reuters', title: 'Petróleo WTI sube ante señales de ajuste en inventarios y oferta global', ticker: 'USOIL', trend: 'up', summary: 'Los futuros de energía avanzan con mayor volumen.' }
     ];
 
+    /* ============================================================
+       ESTADO
+    ============================================================ */
+    const $ = id => document.getElementById(id);
+
+    let cfg = loadCfg();
+    let watchlist = safeParse(localStorage.getItem('user_watchlist'), null) || [...DEFAULT_WATCHLIST];
+    let newsItems = [];
+    let seen = new Set();
+    let uid = 0;
     let currentCategory = 'ALL';
+    let onlyWatch = false;
     let isPaused = false;
     let soundEnabled = localStorage.getItem('news_sound_enabled') !== 'false';
-    let lastTopNewsId = newsItems[0]?.id || null;
+    let mode = 'demo';
+    let firstLoad = true;
+    let fetching = false;
+    let lastUpdate = 0;
+    let providerStatus = {};
     let bannerTimeout = null;
     let demoInterval = null;
     let liveInterval = null;
-    let finnhubKey = localStorage.getItem('finnhub_api_key') || '';
-    let fmpKey = localStorage.getItem('fmp_api_key') || '';
+    let audioCtx = null;
 
-    // Alerta sonora sutil con Web Audio API
+    function safeParse(str, fallback) { try { return JSON.parse(str); } catch (e) { return fallback; } }
+
+    function loadCfg() {
+      const saved = safeParse(localStorage.getItem('news_cfg'), null);
+      if (saved) return { ...DEFAULT_CFG, ...saved };
+      // compatibilidad con la versión anterior del panel
+      return { ...DEFAULT_CFG, finnhub: localStorage.getItem('finnhub_api_key') || '', fmp: localStorage.getItem('fmp_api_key') || '' };
+    }
+
+    function activeProviders() { return PROVIDER_ORDER.filter(n => (cfg[n] || '').trim()); }
+
+    /* ============================================================
+       UTILIDADES
+    ============================================================ */
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : '#'; }
+    function normUrl(u) { return String(u).replace(/[?#].*$/, '').replace(/\/$/, '').toLowerCase(); }
+    function isoDate(daysOffset) { return new Date(Date.now() + daysOffset * 86400000).toISOString().slice(0, 10); }
+    function fmtTime(ts) { return new Date(ts * 1000).toTimeString().slice(0, 5); }
+    function isToday(ts) { return new Date(ts * 1000).toDateString() === new Date().toDateString(); }
+    function fmtShortDate(ts) { return new Date(ts * 1000).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }); }
+    function parseDateSec(s, assumeUtc = false) {
+      if (!s) return 0;
+      let str = String(s);
+      if (assumeUtc && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) str = str.replace(' ', 'T') + 'Z';
+      const t = Date.parse(str);
+      return Number.isNaN(t) ? 0 : Math.floor(t / 1000);
+    }
+
+    function friendlyError(e) {
+      const m = String((e && e.message) || e);
+      if (/HTTP 401|HTTP 403/.test(m)) return m + ' (clave inválida o sin permiso en tu plan)';
+      if (/HTTP 402/.test(m)) return 'HTTP 402 (requiere plan de pago)';
+      if (/HTTP 429/.test(m)) return 'HTTP 429 (límite de llamadas; sube el intervalo)';
+      if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Bloqueado por CORS, red o adblock (prueba con un proxy)';
+      return m;
+    }
+
+    async function getJSON(url, opts) {
+      const target = cfg.proxy ? cfg.proxy + encodeURIComponent(url) : url;
+      const res = await fetch(target, opts);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }
+
+    /* ============================================================
+       CLASIFICACIÓN POR ACTIVO
+    ============================================================ */
+    function categoryOf(sym) {
+      if (COMMODITY_SET.has(sym)) return 'COMMODITIES';
+      if (BOND_RE.test(sym)) return 'BONOS';
+      if (INDEX_SET.has(sym)) return 'INDICES';
+      if (CRYPTO_RE.test(sym)) return 'CRYPTO';
+      if (FOREX_RE.test(sym)) return 'FOREX';
+      return 'ACCIONES';
+    }
+
+    function normalizeSymbol(s) {
+      const x = String(s || '').toUpperCase().replace(/^(X|C|I|CRYPTO|FOREX|INDEX):/, '').replace(/[^A-Z0-9.]/g, '');
+      return SYMBOL_MAP[x] || x;
+    }
+
+    const aliasRegexCache = {};
+    function aliasRegex(sym) {
+      if (aliasRegexCache[sym]) return aliasRegexCache[sym];
+      const list = new Set([sym.toLowerCase(), ...(DEFAULT_ALIASES[sym] || [])]);
+      const parts = [...list].map(a => a.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'));
+      aliasRegexCache[sym] = new RegExp('(^|[^a-z0-9])(' + parts.join('|') + ')([^a-z0-9]|$)', 'i');
+      return aliasRegexCache[sym];
+    }
+
+    function knownSymbols() { return [...new Set([...watchlist, ...Object.keys(DEFAULT_ALIASES)])]; }
+
+    function matchSymbols(text) {
+      return knownSymbols().filter(sym => aliasRegex(sym).test(text));
+    }
+
+    function defaultTicker(cat) {
+      return { CRYPTO: 'CRYPTO', FOREX: 'FX', BONOS: 'MACRO', COMMODITIES: 'CMDTY', INDICES: 'INDEX' }[cat] || 'MKT';
+    }
+
+    function classify(n) {
+      const tags = matchSymbols(n.title || '');
+      matchSymbols(n.summary || '').forEach(s => { if (!tags.includes(s)) tags.push(s); });
+
+      const provided = (n.symbols || []).map(normalizeSymbol).filter(s => s && s.length <= 8);
+      provided.forEach(s => { if (watchlist.includes(s) && !tags.includes(s)) tags.push(s); });
+
+      const ticker = tags[0] || provided[0] || null;
+      let category;
+      if (ticker) {
+        category = categoryOf(ticker);
+        if (category === 'ACCIONES' && n.forced) category = n.forced;
+      } else {
+        category = n.forced || keywordCategory(`${n.title} ${n.summary || ''}`.toLowerCase());
+      }
+      return { ticker: ticker || defaultTicker(category), category, tags };
+    }
+
+    function keywordCategory(text) {
+      if (/\b(bitcoin|btc|ethereum|ether|crypto|cryptocurrency|solana|xrp|stablecoin|binance|coinbase)\b/.test(text)) return 'CRYPTO';
+      if (/\b(gold|oro|xau|silver|plata|oil|petróleo|crude|wti|brent|natural gas|commodity|commodities|opec)\b/.test(text)) return 'COMMODITIES';
+      if (/\b(eur\/usd|gbp\/usd|usd\/jpy|forex|currency|currencies|yen|euro|pound|peso|mxn|dollar index)\b/.test(text)) return 'FOREX';
+      if (/\b(treasury|yield|bond|bonos|tesoro|fomc|fed|ecb|rate hike|rate cut|interest rate|inflation|cpi|gdp|payrolls|macro)\b/.test(text)) return 'BONOS';
+      if (/\b(s&p 500|nasdaq|dow jones|russell|index|indices|nikkei|dax|ftse)\b/.test(text)) return 'INDICES';
+      return 'ACCIONES';
+    }
+
+    /* ============================================================
+       PROVEEDORES DE NOTICIAS
+       Cada uno devuelve { items, failed } con items normalizados:
+       { ts (segundos), source, title, summary, url, symbols[], forced, trend }
+    ============================================================ */
+    async function runJobs(jobs, mapper) {
+      const results = await Promise.allSettled(jobs.map(j => getJSON(j.url, j.opts).then(d => mapper(d, j))));
+      const ok = results.filter(r => r.status === 'fulfilled');
+      if (!ok.length) throw results[0].reason;
+      return { items: ok.flatMap(r => r.value), failed: results.length - ok.length };
+    }
+
+    function stockSymbols() { return watchlist.filter(s => categoryOf(s) === 'ACCIONES'); }
+
+    const PROVIDERS = {
+      /* ---- Finnhub: general + cripto + forex + noticias por empresa ---- */
+      async finnhub(key) {
+        const k = encodeURIComponent(key);
+        const base = 'https://finnhub.io/api/v1';
+        const jobs = [
+          { url: `${base}/news?category=general&token=${k}`, forced: '' },
+          { url: `${base}/news?category=crypto&token=${k}`, forced: 'CRYPTO' },
+          { url: `${base}/news?category=forex&token=${k}`, forced: 'FOREX' }
+        ];
+        const from = isoDate(-3), to = isoDate(0);
+        stockSymbols().slice(0, 8).forEach(sym => {
+          jobs.push({ url: `${base}/company-news?symbol=${encodeURIComponent(sym)}&from=${from}&to=${to}&token=${k}`, forced: '', sym });
+        });
+        return runJobs(jobs, (data, job) => (Array.isArray(data) ? data : []).slice(0, job.sym ? 10 : 30).map(n => ({
+          ts: n.datetime, source: n.source, title: n.headline, summary: n.summary, url: n.url,
+          symbols: [...(n.related ? n.related.split(',') : []), ...(job.sym ? [job.sym] : [])],
+          forced: job.forced, trend: 'neutral'
+        })));
+      },
+
+      /* ---- Financial Modeling Prep (endpoints /stable/news/...) ---- */
+      async fmp(key) {
+        const k = encodeURIComponent(key);
+        const base = 'https://financialmodelingprep.com/stable/news';
+        const jobs = [
+          { url: `${base}/general-latest?page=0&limit=30&apikey=${k}`, forced: '' },
+          { url: `${base}/stock-latest?page=0&limit=30&apikey=${k}`, forced: '' },
+          { url: `${base}/crypto-latest?page=0&limit=30&apikey=${k}`, forced: 'CRYPTO' },
+          { url: `${base}/forex-latest?page=0&limit=30&apikey=${k}`, forced: 'FOREX' }
+        ];
+        const stocks = stockSymbols().slice(0, 10);
+        if (stocks.length) jobs.push({ url: `${base}/stock?symbols=${encodeURIComponent(stocks.join(','))}&page=0&limit=30&apikey=${k}`, forced: '' });
+        return runJobs(jobs, (data, job) => (Array.isArray(data) ? data : []).map(n => ({
+          ts: parseDateSec(n.publishedDate, true), source: n.site || n.publisher || 'FMP', title: n.title, summary: n.text, url: n.url,
+          symbols: n.symbol ? [n.symbol] : [], forced: job.forced, trend: 'neutral'
+        })));
+      },
+
+      /* ---- Marketaux: incluye sentimiento por entidad ---- */
+      async marketaux(key) {
+        const k = encodeURIComponent(key);
+        const base = `https://api.marketaux.com/v1/news/all?api_token=${k}&language=en&limit=50&filter_entities=true`;
+        const jobs = [{ url: base }];
+        const syms = stockSymbols().slice(0, 15);
+        if (syms.length) jobs.push({ url: `${base}&symbols=${encodeURIComponent(syms.join(','))}` });
+        return runJobs(jobs, data => ((data && data.data) || []).map(n => {
+          const ents = n.entities || [];
+          const scores = ents.map(e => e.sentiment_score).filter(x => typeof x === 'number');
+          const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+          return {
+            ts: parseDateSec(n.published_at), source: n.source || 'Marketaux', title: n.title, summary: n.description, url: n.url,
+            symbols: ents.map(e => e.symbol), forced: '', trend: avg > 0.15 ? 'up' : avg < -0.15 ? 'down' : 'neutral'
+          };
+        }));
+      },
+
+      /* ---- Polygon.io: noticias con sentimiento (acciones, cripto X:, forex C:) ---- */
+      async polygon(key) {
+        const k = encodeURIComponent(key);
+        const base = `https://api.polygon.io/v2/reference/news?order=desc&sort=published_utc&apiKey=${k}`;
+        const jobs = [{ url: `${base}&limit=50` }];
+        watchlist.forEach(sym => {
+          const cat = categoryOf(sym);
+          if (cat === 'ACCIONES') jobs.push({ url: `${base}&limit=15&ticker=${encodeURIComponent(sym)}` });
+          else if (cat === 'CRYPTO') jobs.push({ url: `${base}&limit=15&ticker=${encodeURIComponent('X:' + (sym.endsWith('USD') ? sym : sym + 'USD'))}` });
+          else if (cat === 'FOREX') jobs.push({ url: `${base}&limit=15&ticker=${encodeURIComponent('C:' + sym)}` });
+        });
+        return runJobs(jobs.slice(0, 8), data => ((data && data.results) || []).map(n => {
+          const sent = (n.insights || [])[0] && n.insights[0].sentiment;
+          return {
+            ts: parseDateSec(n.published_utc), source: (n.publisher && n.publisher.name) || 'Polygon', title: n.title, summary: n.description,
+            url: n.article_url, symbols: n.tickers || [], forced: '',
+            trend: sent === 'positive' ? 'up' : sent === 'negative' ? 'down' : 'neutral'
+          };
+        }));
+      },
+
+      /* ---- Benzinga: feed profesional ---- */
+      async benzinga(key) {
+        const k = encodeURIComponent(key);
+        const base = `https://api.benzinga.com/api/v2/news?token=${k}&pageSize=50&displayOutput=abstract&sort=created:desc`;
+        const opts = { headers: { Accept: 'application/json' } };
+        const jobs = [{ url: base, opts }];
+        const syms = stockSymbols().slice(0, 15);
+        if (syms.length) jobs.push({ url: `${base}&tickers=${encodeURIComponent(syms.join(','))}`, opts });
+        return runJobs(jobs, data => (Array.isArray(data) ? data : []).map(n => ({
+          ts: parseDateSec(n.created), source: 'Benzinga', title: n.title, summary: n.teaser || n.body, url: n.url,
+          symbols: (n.stocks || []).map(s => s.name), forced: '', trend: 'neutral'
+        })));
+      }
+    };
+
+    /* ============================================================
+       INGESTA: deduplicar, clasificar, fusionar y alertar
+    ============================================================ */
+    function matchesWatch(item) {
+      return watchlist.includes(item.ticker) || item.tags.some(t => watchlist.includes(t));
+    }
+
+    function ingest(raws, { silent = false, noDedupe = false } = {}) {
+      const fresh = [];
+      for (const r of raws) {
+        if (!r || !r.title) continue;
+        const k1 = r.url ? 'u:' + normUrl(r.url) : null;
+        const k2 = 't:' + String(r.title).toLowerCase().replace(/\W+/g, ' ').trim().slice(0, 120);
+        if (!noDedupe && ((k1 && seen.has(k1)) || seen.has(k2))) continue;
+        if (k1) seen.add(k1);
+        seen.add(k2);
+        const c = classify(r);
+        fresh.push({
+          id: ++uid,
+          ts: r.ts || Math.floor(Date.now() / 1000),
+          source: r.source || 'Mercado', title: String(r.title).trim(), summary: r.summary || '',
+          url: r.url || '#', ticker: c.ticker, tags: c.tags, category: c.category, trend: r.trend || 'neutral',
+          keys: [k1, k2].filter(Boolean)
+        });
+      }
+      if (!fresh.length) return;
+
+      newsItems = [...fresh, ...newsItems].sort((a, b) => b.ts - a.ts).slice(0, MAX_ITEMS);
+      if (seen.size > 5000) { seen = new Set(newsItems.flatMap(n => n.keys)); }
+
+      renderFeed(silent ? new Set() : new Set(fresh.map(f => f.id)));
+      if (!silent) alertFresh(fresh);
+    }
+
+    function alertFresh(fresh) {
+      const cutoff = Date.now() / 1000 - 6 * 3600;
+      const recent = fresh.filter(f => f.ts > cutoff);
+      if (!recent.length) return;
+      const pick = recent.find(matchesWatch) || recent[0];
+      playAlertSound();
+      triggerVisualAlert(pick, recent.length);
+    }
+
+    /* ============================================================
+       MODO EN VIVO
+    ============================================================ */
+    async function fetchAllLive(manual = false) {
+      if (fetching || (isPaused && !manual)) return;
+      const names = activeProviders();
+      if (!names.length) return;
+      fetching = true;
+      $('refreshBtn').textContent = '⟳ Consultando…';
+
+      const batches = await Promise.all(names.map(async name => {
+        try {
+          const r = await PROVIDERS[name](cfg[name].trim());
+          providerStatus[name] = { ok: true, count: r.items.length, failed: r.failed };
+          return r.items;
+        } catch (e) {
+          console.error(name, e);
+          providerStatus[name] = { ok: false, error: friendlyError(e) };
+          return [];
+        }
+      }));
+
+      ingest(batches.flat(), { silent: firstLoad });
+      firstLoad = false;
+      fetching = false;
+      lastUpdate = Date.now();
+      $('refreshBtn').textContent = '⟳ Actualizar';
+      renderStatus();
+      renderFeed();
+    }
+
+    function refreshNow() {
+      if (mode === 'live') fetchAllLive(true);
+      else openApiModal();
+    }
+
+    function renderStatus() {
+      const el = $('statusBar');
+      const names = activeProviders();
+      if (mode !== 'live' || !names.length) { el.classList.add('hidden'); return; }
+      el.classList.remove('hidden');
+      const chips = names.map(n => {
+        const s = providerStatus[n];
+        const label = PROVIDER_META[n].label;
+        if (!s) return `<span class="text-slate-500">● ${esc(label)} …</span>`;
+        if (!s.ok) return `<span class="text-rose-400" title="${esc(s.error)}">✗ ${esc(label)}: ${esc(s.error)}</span>`;
+        const warn = s.failed ? ` <span class="text-amber-400">(${s.failed} consultas fallaron)</span>` : '';
+        return `<span class="text-emerald-400">✓ ${esc(label)} <span class="text-slate-400">${s.count}</span>${warn}</span>`;
+      });
+      const upd = lastUpdate ? `<span class="text-slate-500 ml-auto">Última consulta ${new Date(lastUpdate).toTimeString().slice(0, 8)} · cada ${cfg.interval}s</span>` : '';
+      el.innerHTML = chips.join('') + upd;
+    }
+
+    function startLiveMode() {
+      clearInterval(demoInterval);
+      clearInterval(liveInterval);
+      mode = 'live';
+      newsItems = []; seen = new Set(); providerStatus = {}; firstLoad = true;
+      const badge = $('modeBadge');
+      badge.textContent = `EN VIVO · ${activeProviders().length} API${activeProviders().length > 1 ? 'S' : ''}`;
+      badge.className = 'text-[11px] font-mono-num px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+      renderFeed();
+      renderStatus();
+      fetchAllLive(true);
+      liveInterval = setInterval(() => fetchAllLive(false), Math.max(5, Number(cfg.interval) || 30) * 1000);
+    }
+
+    /* ============================================================
+       MODO DEMO
+    ============================================================ */
+    function demoRaw(sample, ts) {
+      return { ts, source: sample.source, title: sample.title, summary: sample.summary, url: '#', symbols: [sample.ticker], forced: '', trend: sample.trend };
+    }
+
+    function startDemoMode() {
+      clearInterval(demoInterval);
+      clearInterval(liveInterval);
+      mode = 'demo';
+      newsItems = []; seen = new Set(); providerStatus = {};
+      const badge = $('modeBadge');
+      badge.textContent = 'MODO DEMO EN VIVO';
+      badge.className = 'text-[11px] font-mono-num px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20';
+      renderStatus();
+
+      const now = Math.floor(Date.now() / 1000);
+      ingest(LIVE_POOL.map((s, i) => demoRaw(s, now - (i + 1) * 240)), { silent: true, noDedupe: true });
+      renderFeed();
+
+      demoInterval = setInterval(() => {
+        if (isPaused) return;
+        const sample = LIVE_POOL[Math.floor(Math.random() * LIVE_POOL.length)];
+        ingest([demoRaw(sample, Math.floor(Date.now() / 1000))], { noDedupe: true });
+      }, 9000);
+    }
+
+    /* ============================================================
+       ALERTAS
+    ============================================================ */
     function playAlertSound() {
       if (!soundEnabled) return;
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        const ctx = new AudioCtx();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
+        if (!audioCtx) audioCtx = new AudioCtx();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const t = audioCtx.currentTime;
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(1174.66, ctx.currentTime + 0.09);
-        gain.gain.setValueAtTime(0.06, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+        osc.frequency.setValueAtTime(880, t);
+        osc.frequency.exponentialRampToValueAtTime(1174.66, t + 0.09);
+        gain.gain.setValueAtTime(0.06, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
         osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.23);
-      } catch (e) {
-        // Ignorado si el navegador bloquea audio antes de interacción
-      }
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.23);
+      } catch (e) { /* el navegador puede bloquear audio antes de la primera interacción */ }
     }
 
-    function triggerVisualAlert(item) {
-      const card = document.getElementById('tapeCard');
+    function triggerVisualAlert(item, count = 1) {
+      const card = $('tapeCard');
       card.classList.remove('alert-pulse');
       void card.offsetWidth;
       card.classList.add('alert-pulse');
-
-      const banner = document.getElementById('alertBanner');
-      const textEl = document.getElementById('alertBannerText');
-      textEl.textContent = `[${item.ticker}] ${item.source}: ${item.title}`;
-      banner.classList.remove('hidden');
-
+      const extra = count > 1 ? `  (+${count - 1} más)` : '';
+      $('alertBannerText').textContent = `[${item.ticker}] ${item.source}: ${item.title}${extra}`;
+      $('alertBanner').classList.remove('hidden');
       clearTimeout(bannerTimeout);
-      bannerTimeout = setTimeout(() => {
-        banner.classList.add('hidden');
-      }, 6000);
+      bannerTimeout = setTimeout(hideAlertBanner, 6000);
     }
 
-    function hideAlertBanner() {
-      document.getElementById('alertBanner').classList.add('hidden');
-    }
+    function hideAlertBanner() { $('alertBanner').classList.add('hidden'); }
 
     function updateSoundButton() {
-      document.getElementById('soundIcon').textContent = soundEnabled ? '🔔' : '🔕';
-      document.getElementById('soundText').textContent = soundEnabled ? 'Sonido ON' : 'Silencio';
-      const btn = document.getElementById('soundBtn');
-      btn.className = soundEnabled
+      $('soundIcon').textContent = soundEnabled ? '🔔' : '🔕';
+      $('soundText').textContent = soundEnabled ? 'Sonido ON' : 'Silencio';
+      $('soundBtn').className = soundEnabled
         ? 'px-2.5 py-1 text-xs rounded border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition flex items-center gap-1.5'
         : 'px-2.5 py-1 text-xs rounded border border-[#243240] bg-[#131c24] hover:bg-[#1a2631] text-slate-400 transition flex items-center gap-1.5';
     }
@@ -389,379 +702,212 @@
       if (soundEnabled) playAlertSound();
     }
 
-    // Watchlist rápida
-    function renderWatchlist() {
-      const container = document.getElementById('watchlistContainer');
-      const activeSymbol = document.getElementById('symbolInput').value.trim().toUpperCase();
+    function togglePause() {
+      isPaused = !isPaused;
+      $('pauseIcon').textContent = isPaused ? '▶' : '⏸';
+      $('pauseText').textContent = isPaused ? 'Reanudar' : 'Pausar';
+      $('liveDot').classList.toggle('bg-emerald-500', !isPaused);
+      $('liveDot').classList.toggle('bg-slate-500', isPaused);
+    }
 
-      const buttonsHtml = watchlist.map(sym => {
-        const isActive = activeSymbol === sym;
-        const activeClasses = isActive
+    /* ============================================================
+       WATCHLIST
+    ============================================================ */
+    function saveWatchlist() { localStorage.setItem('user_watchlist', JSON.stringify(watchlist)); }
+
+    function renderWatchlist() {
+      const active = $('symbolInput').value.trim().toUpperCase();
+      const buttons = watchlist.map(sym => {
+        const cls = active === sym
           ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
           : 'bg-[#0d131a] text-slate-300 border-[#1f2b37] hover:border-[#32455a] hover:text-white';
-        return `
-          <span class="inline-flex items-center rounded border ${activeClasses} text-[11px] font-mono-num overflow-hidden transition">
-            <button onclick="selectWatchTicker('${sym}')" class="px-2 py-0.5 font-semibold">${sym}</button>
-            <button onclick="removeWatchTicker('${sym}')" title="Quitar ${sym}" class="px-1 py-0.5 text-slate-500 hover:text-rose-400 text-[10px]">×</button>
-          </span>
-        `;
+        return `<span class="inline-flex items-center rounded border ${cls} text-[11px] font-mono-num overflow-hidden transition">
+          <button onclick="selectWatchTicker('${esc(sym)}')" class="px-2 py-0.5 font-semibold">${esc(sym)}</button>
+          <button onclick="removeWatchTicker('${esc(sym)}')" title="Quitar ${esc(sym)}" class="px-1 py-0.5 text-slate-500 hover:text-rose-400 text-[10px]">×</button>
+        </span>`;
       }).join('');
-
-      container.innerHTML = `<span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">Watchlist:</span>${buttonsHtml}`;
+      $('watchlistContainer').innerHTML = `<span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">Watchlist:</span>${buttons}`;
     }
 
     function selectWatchTicker(sym) {
-      const input = document.getElementById('symbolInput');
-      if (input.value.trim().toUpperCase() === sym) {
-        input.value = '';
-      } else {
-        input.value = sym;
-      }
+      const input = $('symbolInput');
+      input.value = input.value.trim().toUpperCase() === sym ? '' : sym;
       renderWatchlist();
       renderFeed();
-    }
-
-    function syncWatchlistActive() {
-      renderWatchlist();
     }
 
     function addWatchTicker() {
-      const input = document.getElementById('newWatchInput');
+      const input = $('newWatchInput');
       const sym = input.value.trim().toUpperCase().replace(/[^A-Z0-9./-]/g, '');
       if (!sym) return;
-      if (!watchlist.includes(sym)) {
-        watchlist.push(sym);
-        localStorage.setItem('user_watchlist', JSON.stringify(watchlist));
-      }
+      if (!watchlist.includes(sym)) { watchlist.push(sym); saveWatchlist(); }
       input.value = '';
-      document.getElementById('symbolInput').value = sym;
+      $('symbolInput').value = sym;
       renderWatchlist();
       renderFeed();
+      if (mode === 'live') fetchAllLive(true); // trae noticias del símbolo nuevo
     }
 
     function removeWatchTicker(sym) {
       watchlist = watchlist.filter(t => t !== sym);
-      localStorage.setItem('user_watchlist', JSON.stringify(watchlist));
-      const input = document.getElementById('symbolInput');
-      if (input.value.trim().toUpperCase() === sym) input.value = '';
+      saveWatchlist();
+      if ($('symbolInput').value.trim().toUpperCase() === sym) $('symbolInput').value = '';
       renderWatchlist();
       renderFeed();
     }
 
-    function classifyNews(headline, summary, related, forcedCategory = '') {
-      if (forcedCategory === 'CRYPTO') return { category: 'CRYPTO', ticker: related ? related.split(',')[0].trim().toUpperCase() : 'CRYPTO' };
-      if (forcedCategory === 'FOREX') return { category: 'FOREX', ticker: related ? related.split(',')[0].trim().toUpperCase() : 'FX' };
-
-      const text = `${headline} ${summary} ${related}`.toLowerCase();
-      if (/\b(bitcoin|btc|ethereum|eth|crypto|solana|sol|xrp|etf)\b/.test(text)) {
-        return { category: 'CRYPTO', ticker: related ? related.split(',')[0].trim().toUpperCase() : 'BTCUSD' };
-      }
-      if (/\b(gold|oro|xau|silver|plata|oil|petróleo|crude|wti|brent|natural gas|commodity|commodities)\b/.test(text)) {
-        const commTicker = text.includes('oil') || text.includes('crude') || text.includes('petróleo') ? 'USOIL' : 'XAUUSD';
-        return { category: 'COMMODITIES', ticker: commTicker };
-      }
-      if (/\b(eur\/usd|eurusd|gbp\/usd|gbpusd|usd\/jpy|usdjpy|forex|fx|currency|yen|euro|pound|peso|mxn)\b/.test(text)) {
-        return { category: 'FOREX', ticker: related ? related.split(',')[0].trim().toUpperCase() : 'FX' };
-      }
-      if (/\b(10-year|10 year|treasury|yield|bond|bono|tesoro|fomc|fed|ecb|interest rate|inflation|cpi|gdp|macro)\b/.test(text)) {
-        return { category: 'BONOS', ticker: 'MACRO' };
-      }
-      if (/\b(s&p 500|nasdaq|dow jones|russell|us500|us100|us30|index|indices|nikkei|dax|ftse)\b/.test(text)) {
-        return { category: 'INDICES', ticker: related ? related.split(',')[0].trim().toUpperCase() : 'INDEX' };
-      }
-      const cleanTicker = related ? related.split(',')[0].trim().toUpperCase() : 'MKT';
-      return { category: 'ACCIONES', ticker: cleanTicker || 'MKT' };
+    function toggleOnlyWatch() {
+      onlyWatch = !onlyWatch;
+      $('onlyWatchBtn').className = onlyWatch
+        ? 'px-2 py-0.5 text-[11px] rounded border border-emerald-500/50 bg-emerald-500/20 text-emerald-300 font-medium transition'
+        : 'px-2 py-0.5 text-[11px] rounded border border-[#1f2b37] bg-[#0d131a] text-slate-400 hover:text-slate-200 font-medium transition';
+      renderFeed();
     }
 
-    function getCurrentTimeStr() {
-      return new Date().toTimeString().slice(0, 5);
-    }
-
-    function updateClock() {
-      document.getElementById('clockDisplay').textContent = new Date().toTimeString().slice(0, 8);
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
-
+    /* ============================================================
+       RENDER
+    ============================================================ */
     function getSourceBadge(source) {
-      const st = SOURCE_STYLES[source] || { bg: 'bg-slate-600', text: 'text-white', label: source.slice(0, 2).toUpperCase() };
-      return `<span class="inline-flex items-center justify-center w-4 h-4 rounded-[3px] text-[9px] font-bold shrink-0 ${st.bg} ${st.text}">${st.label}</span>`;
+      const key = Object.keys(SOURCE_STYLES).find(k => source.toLowerCase().includes(k.toLowerCase()));
+      const st = SOURCE_STYLES[key] || { bg: 'bg-slate-600', text: 'text-white', label: source.slice(0, 2).toUpperCase() };
+      return `<span class="inline-flex items-center justify-center min-w-[16px] h-4 px-0.5 rounded-[3px] text-[9px] font-bold shrink-0 ${st.bg} ${st.text}">${esc(st.label)}</span>`;
     }
 
     function getTickerBadge(ticker, trend, category) {
-      let colorClass = 'bg-[#18232f] text-slate-300 border-[#283849]';
+      let cls = 'bg-[#18232f] text-slate-300 border-[#283849]';
       let arrow = '';
-      if (category === 'CRYPTO') colorClass = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
-      if (category === 'COMMODITIES') colorClass = 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30';
-      if (category === 'FOREX') colorClass = 'bg-purple-500/15 text-purple-300 border-purple-500/30';
-      if (category === 'BONOS') colorClass = 'bg-sky-500/15 text-sky-300 border-sky-500/30';
-
-      if (trend === 'up') {
-        colorClass = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
-        arrow = ' ▲';
-      } else if (trend === 'down') {
-        colorClass = 'bg-rose-500/15 text-rose-400 border-rose-500/30';
-        arrow = ' ▼';
-      }
-      return `<span class="inline-block font-mono-num text-[10px] font-semibold px-1.5 py-0.5 rounded border ${colorClass} truncate max-w-[96px]">${ticker}${arrow}</span>`;
+      if (category === 'CRYPTO') cls = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+      if (category === 'COMMODITIES') cls = 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30';
+      if (category === 'FOREX') cls = 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+      if (category === 'BONOS') cls = 'bg-sky-500/15 text-sky-300 border-sky-500/30';
+      if (trend === 'up') { cls = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'; arrow = ' ▲'; }
+      else if (trend === 'down') { cls = 'bg-rose-500/15 text-rose-400 border-rose-500/30'; arrow = ' ▼'; }
+      return `<span class="inline-block font-mono-num text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cls} truncate max-w-[96px]">${esc(ticker)}${arrow}</span>`;
     }
 
-    function renderFeed(flashFirst = false) {
-      const listEl = document.getElementById('newsList');
-      const emptyEl = document.getElementById('emptyState');
-      const symbolFilter = document.getElementById('symbolInput').value.trim().toUpperCase();
-      const textFilter = document.getElementById('searchInput').value.trim().toLowerCase();
+    function renderFeed(flashIds = new Set()) {
+      const listEl = $('newsList');
+      const emptyEl = $('emptyState');
+      const symbolFilter = $('symbolInput').value.trim().toUpperCase();
+      const textFilter = $('searchInput').value.trim().toLowerCase();
 
       const filtered = newsItems.filter(item => {
         if (currentCategory !== 'ALL' && item.category !== currentCategory) return false;
-        if (symbolFilter && !(`${item.ticker || ''} ${item.title}`.toUpperCase().includes(symbolFilter))) return false;
-        if (textFilter) {
-          const haystack = `${item.title} ${item.source} ${item.ticker || ''} ${item.category}`.toLowerCase();
-          if (!haystack.includes(textFilter)) return false;
-        }
+        if (onlyWatch && !matchesWatch(item)) return false;
+        if (symbolFilter && item.ticker !== symbolFilter && !item.tags.includes(symbolFilter) && !item.title.toUpperCase().includes(symbolFilter)) return false;
+        if (textFilter && !`${item.title} ${item.source} ${item.ticker} ${item.category}`.toLowerCase().includes(textFilter)) return false;
         return true;
-      });
+      }).slice(0, MAX_ROWS);
 
-      if (filtered.length === 0) {
+      if (!filtered.length) {
         listEl.innerHTML = '';
         emptyEl.classList.remove('hidden');
+        emptyEl.textContent = newsItems.length
+          ? 'No hay titulares que coincidan con este filtro. Prueba limpiar el buscador o cambiar de pestaña.'
+          : (mode === 'live' ? 'Consultando las APIs… si no aparece nada, revisa la barra de estado de arriba.' : 'Sin noticias todavía.');
         return;
       }
 
       emptyEl.classList.add('hidden');
-      listEl.innerHTML = filtered.map((item, idx) => `
-        <div
-          onclick="openArticle(${item.id})"
-          class="grid grid-cols-[52px_120px_1fr_92px] sm:grid-cols-[58px_145px_1fr_104px] items-center px-3 py-2 hover:bg-[#17212b] cursor-pointer transition-colors group ${flashFirst && idx === 0 ? 'new-flash' : ''}"
-        >
-          <div class="font-mono-num text-xs text-amber-400/90 font-medium">
-            ${item.time}
+      listEl.innerHTML = filtered.map(item => `
+        <div onclick="openArticle(${item.id})"
+             class="grid grid-cols-[52px_120px_1fr_92px] sm:grid-cols-[58px_145px_1fr_104px] items-center px-3 py-2 hover:bg-[#17212b] cursor-pointer transition-colors group ${flashIds.has(item.id) ? 'new-flash' : ''}">
+          <div class="font-mono-num text-xs text-amber-400/90 font-medium leading-tight">
+            ${fmtTime(item.ts)}
+            ${isToday(item.ts) ? '' : `<div class="text-[9px] text-slate-500 font-normal">${esc(fmtShortDate(item.ts))}</div>`}
           </div>
           <div class="flex items-center gap-1.5 pr-2 min-w-0">
             ${getSourceBadge(item.source)}
-            <span class="text-xs text-slate-400 truncate group-hover:text-slate-300">${item.source}</span>
+            <span class="text-xs text-slate-400 truncate group-hover:text-slate-300">${esc(item.source)}</span>
           </div>
-          <div class="text-xs sm:text-[13px] text-slate-100 font-medium truncate pr-3 group-hover:text-white">
-            ${item.title}
-          </div>
-          <div class="text-right">
-            ${getTickerBadge(item.ticker, item.trend, item.category)}
-          </div>
-        </div>
-      `).join('');
+          <div class="text-xs sm:text-[13px] text-slate-100 font-medium truncate pr-3 group-hover:text-white">${esc(item.title)}</div>
+          <div class="text-right">${getTickerBadge(item.ticker, item.trend, item.category)}</div>
+        </div>`).join('');
     }
 
     function setCategory(cat) {
       currentCategory = cat;
       document.querySelectorAll('.cat-btn').forEach(btn => {
-        if (btn.dataset.cat === cat) {
-          btn.className = 'cat-btn active px-2.5 py-1 text-xs rounded font-medium bg-[#1e2936] text-white border border-[#334457] transition';
-        } else {
-          btn.className = 'cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-slate-200 transition';
-        }
+        btn.className = btn.dataset.cat === cat
+          ? 'cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#1e2936] text-white border border-[#334457] transition'
+          : 'cat-btn px-2.5 py-1 text-xs rounded font-medium bg-[#0d131a] text-slate-400 border border-[#1f2b37] hover:text-slate-200 transition';
       });
       renderFeed();
     }
 
     function clearFilters() {
-      document.getElementById('symbolInput').value = '';
-      document.getElementById('searchInput').value = '';
+      $('symbolInput').value = '';
+      $('searchInput').value = '';
       setCategory('ALL');
       renderWatchlist();
     }
 
-    function togglePause() {
-      isPaused = !isPaused;
-      document.getElementById('pauseIcon').textContent = isPaused ? '▶' : '⏸';
-      document.getElementById('pauseText').textContent = isPaused ? 'Reanudar' : 'Pausar';
-      document.getElementById('liveDot').classList.toggle('bg-emerald-500', !isPaused);
-      document.getElementById('liveDot').classList.toggle('bg-slate-500', isPaused);
-    }
-
+    /* ============================================================
+       MODALES
+    ============================================================ */
     function openArticle(id) {
       const item = newsItems.find(n => n.id === id);
       if (!item) return;
-      document.getElementById('modalBadge').textContent = item.ticker;
-      document.getElementById('modalCatTag').textContent = CATEGORY_LABELS[item.category] || item.category;
-      document.getElementById('modalSource').textContent = item.source;
-      document.getElementById('modalTime').textContent = item.time;
-      document.getElementById('modalTitle').textContent = item.title;
-      document.getElementById('modalSummary').textContent = item.summary || 'Haz clic en el botón inferior para leer la nota completa.';
-      document.getElementById('modalLink').href = item.url || '#';
-      document.getElementById('articleModal').classList.remove('hidden');
+      $('modalBadge').textContent = item.ticker;
+      $('modalCatTag').textContent = CATEGORY_LABELS[item.category] || item.category;
+      $('modalSource').textContent = item.source;
+      $('modalTime').textContent = `${fmtShortDate(item.ts)} ${fmtTime(item.ts)}`;
+      $('modalTitle').textContent = item.title;
+      $('modalSummary').textContent = item.summary ? item.summary.slice(0, 700) : 'Haz clic en el botón inferior para leer la nota completa.';
+      $('modalLink').href = safeUrl(item.url);
+      $('articleModal').classList.remove('hidden');
     }
 
     function closeArticleModal(e) {
-      if (!e || e.target.id === 'articleModal') {
-        document.getElementById('articleModal').classList.add('hidden');
-      }
+      if (!e || e.target.id === 'articleModal') $('articleModal').classList.add('hidden');
     }
 
     function openApiModal() {
-      document.getElementById('finnhubInput').value = finnhubKey;
-      document.getElementById('fmpInput').value = fmpKey;
-      document.getElementById('apiModal').classList.remove('hidden');
+      $('apiFields').innerHTML = PROVIDER_ORDER.map((n, i) => `
+        <div>
+          <label class="block text-[11px] font-medium text-slate-300 mb-1">
+            ${i + 1}. ${esc(PROVIDER_META[n].label)} <span class="text-slate-500">(${esc(PROVIDER_META[n].hint)})</span>
+          </label>
+          <input type="password" autocomplete="off" id="key_${n}" value="${esc(cfg[n] || '')}" placeholder="Clave de ${esc(PROVIDER_META[n].site)}"
+            class="w-full bg-[#0a0f14] border border-[#263545] focus:border-emerald-500 rounded px-3 py-1.5 text-xs font-mono-num text-white outline-none" />
+        </div>`).join('');
+      $('proxyInput').value = cfg.proxy || '';
+      $('intervalSelect').value = String(cfg.interval);
+      $('apiModal').classList.remove('hidden');
     }
 
     function closeApiModal(e) {
-      if (!e || e.target.id === 'apiModal') {
-        document.getElementById('apiModal').classList.add('hidden');
-      }
+      if (!e || e.target.id === 'apiModal') $('apiModal').classList.add('hidden');
     }
 
     function saveApis() {
-      finnhubKey = document.getElementById('finnhubInput').value.trim();
-      fmpKey = document.getElementById('fmpInput').value.trim();
-      localStorage.setItem('finnhub_api_key', finnhubKey);
-      localStorage.setItem('fmp_api_key', fmpKey);
+      PROVIDER_ORDER.forEach(n => { cfg[n] = $('key_' + n).value.trim(); });
+      cfg.proxy = $('proxyInput').value.trim();
+      cfg.interval = Number($('intervalSelect').value) || 30;
+      localStorage.setItem('news_cfg', JSON.stringify(cfg));
       closeApiModal();
-      if (finnhubKey || fmpKey) {
-        startLiveMode();
-      } else {
-        startDemoMode();
-      }
+      if (activeProviders().length) startLiveMode(); else startDemoMode();
     }
 
     function disconnectApis() {
-      finnhubKey = '';
-      fmpKey = '';
+      PROVIDER_ORDER.forEach(n => { cfg[n] = ''; });
+      localStorage.setItem('news_cfg', JSON.stringify(cfg));
       localStorage.removeItem('finnhub_api_key');
       localStorage.removeItem('fmp_api_key');
       closeApiModal();
       startDemoMode();
     }
 
-    async function fetchAllLiveNews() {
-      if (isPaused || (!finnhubKey && !fmpKey)) return;
-      let combined = [];
-
-      if (finnhubKey) {
-        try {
-          const endpoints = [
-            { url: `https://finnhub.io/api/v1/news?category=general&token=${encodeURIComponent(finnhubKey)}`, forced: '' },
-            { url: `https://finnhub.io/api/v1/news?category=crypto&token=${encodeURIComponent(finnhubKey)}`, forced: 'CRYPTO' },
-            { url: `https://finnhub.io/api/v1/news?category=forex&token=${encodeURIComponent(finnhubKey)}`, forced: 'FOREX' }
-          ];
-
-          const responses = await Promise.all(endpoints.map(ep => fetch(ep.url)));
-          for (let i = 0; i < responses.length; i++) {
-            if (!responses[i].ok) continue;
-            const data = await responses[i].json();
-            if (!Array.isArray(data)) continue;
-            data.slice(0, 20).forEach((n, idx) => {
-              const classified = classifyNews(n.headline || '', n.summary || '', n.related || '', endpoints[i].forced);
-              combined.push({
-                id: n.id || Date.now() + i * 100 + idx,
-                timestamp: n.datetime || 0,
-                time: new Date((n.datetime || 0) * 1000).toTimeString().slice(0, 5),
-                source: n.source || 'Mercado',
-                title: n.headline,
-                summary: n.summary,
-                ticker: classified.ticker,
-                trend: 'neutral',
-                category: classified.category,
-                url: n.url
-              });
-            });
-          }
-        } catch (e) {
-          console.error('Error Finnhub:', e);
-        }
-      }
-
-      if (fmpKey) {
-        try {
-          const fmpRes = await fetch(`https://financialmodelingprep.com/stable/new/stock-latest?page=0&limit=25&apikey=${encodeURIComponent(fmpKey)}`);
-          if (fmpRes.ok) {
-            const fmpData = await fmpRes.json();
-            if (Array.isArray(fmpData)) {
-              fmpData.forEach((n, i) => {
-                const ts = Math.floor(new Date(n.publishedDate).getTime() / 1000) || 0;
-                const classified = classifyNews(n.title || '', n.text || '', n.symbol || '');
-                combined.push({
-                  id: ts + i + 9000,
-                  timestamp: ts,
-                  time: new Date(ts * 1000).toTimeString().slice(0, 5),
-                  source: n.site || 'FMP',
-                  title: n.title,
-                  summary: n.text,
-                  ticker: classified.ticker,
-                  trend: 'neutral',
-                  category: classified.category,
-                  url: n.url
-                });
-              });
-            }
-          }
-        } catch (e) {
-          console.error('Error FMP:', e);
-        }
-      }
-
-      if (combined.length > 0) {
-        combined.sort((a, b) => b.timestamp - a.timestamp);
-        const topCandidate = combined[0];
-        const hasBrandNewTop = lastTopNewsId && topCandidate && topCandidate.id !== lastTopNewsId;
-
-        newsItems = combined.slice(0, 80);
-        lastTopNewsId = newsItems[0]?.id || null;
-        renderFeed(hasBrandNewTop);
-
-        if (hasBrandNewTop) {
-          playAlertSound();
-          triggerVisualAlert(newsItems[0]);
-        }
-      }
-    }
-
-    function startLiveMode() {
-      clearInterval(demoInterval);
-      clearInterval(liveInterval);
-      const badge = document.getElementById('modeBadge');
-      badge.textContent = 'API TODOS LOS ACTIVOS EN VIVO';
-      badge.className = 'text-[11px] font-mono-num px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
-      fetchAllLiveNews();
-      liveInterval = setInterval(fetchAllLiveNews, 40000);
-    }
-
-    function startDemoMode() {
-      clearInterval(demoInterval);
-      clearInterval(liveInterval);
-      const badge = document.getElementById('modeBadge');
-      badge.textContent = 'MODO DEMO EN VIVO';
-      badge.className = 'text-[11px] font-mono-num px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20';
-      renderFeed();
-      demoInterval = setInterval(() => {
-        if (isPaused) return;
-        const sample = LIVE_POOL[Math.floor(Math.random() * LIVE_POOL.length)];
-        const newItem = {
-          id: Date.now(),
-          time: getCurrentTimeStr(),
-          source: sample.source,
-          title: sample.title,
-          summary: sample.summary,
-          ticker: sample.ticker,
-          trend: sample.trend,
-          category: sample.category,
-          url: '#'
-        };
-        newsItems.unshift(newItem);
-        lastTopNewsId = newItem.id;
-        if (newsItems.length > 80) newsItems.pop();
-        renderFeed(true);
-        playAlertSound();
-        triggerVisualAlert(newItem);
-      }, 9000);
-    }
+    /* ============================================================
+       INICIO
+    ============================================================ */
+    function updateClock() { $('clockDisplay').textContent = new Date().toTimeString().slice(0, 8); }
+    setInterval(updateClock, 1000);
+    updateClock();
 
     updateSoundButton();
     renderWatchlist();
-
-    if (finnhubKey || fmpKey) {
-      startLiveMode();
-    } else {
-      startDemoMode();
-    }
+    if (activeProviders().length) startLiveMode(); else startDemoMode();
   </script>
 </body>
 </html>
