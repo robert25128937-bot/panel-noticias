@@ -671,7 +671,7 @@
 
       if (fmpKey) {
         try {
-          const fmpRes = await fetch(`https://financialmodelingprep.com/api/v3/stock_news?limit=25&apikey=${encodeURIComponent(fmpKey)}`);
+          const fmpRes = await fetch(`https://financialmodelingprep.com/stable/new/stock-latest?page=0&limit=25&apikey=${encodeURIComponent(fmpKey)}`);
           if (fmpRes.ok) {
             const fmpData = await fmpRes.json();
             if (Array.isArray(fmpData)) {
